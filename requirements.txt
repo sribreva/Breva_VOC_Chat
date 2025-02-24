@@ -1,15 +1,6 @@
-# Base requirements
-numpy>=1.26.0
+streamlit==1.42.0
+numpy==2.2.0
 colorama==0.4.6
-streamlit>=1.31.0
-pinecone-client>=2.2.4
-anthropic>=0.18.0
-
-# Sentence transformers dependencies
-torch==1.13.1
-transformers==4.26.0
-tqdm==4.66.1
-scikit-learn>=1.3.0
-scipy>=1.11.3
-nltk==3.8.1
-sentence-transformers>=2.2.2
+pinecone-client==6.0.0
+anthropic==0.47.0
+requests==2.31.0
