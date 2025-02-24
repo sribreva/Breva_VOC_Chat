@@ -240,19 +240,12 @@ class VOCDatabaseQuerier:
                 1. **Frame Your Answer for Breva Employees**  
                    - Assume the user is a Breva employee analyzing customer responses, not an SMB owner seeking advice.  
                    - Focus on **what insights can be drawn from the provided data** rather than providing direct guidance to the customer.  
+                   - Please provide statistics when available as this makes it more understandable. 
                 
-                2. **Provide Actionable Insights**  
-                   - Highlight key trends, common pain points, and any patterns in the data.  
-                   - If possible, suggest ways Breva employees can **better categorize or analyze** this information.  
-                
-                3. **Use the Background Information Thoughtfully**  
+                2. **Use the Background Information Thoughtfully**  
                    - Incorporate key insights from the summary without directly repeating them.  
                    - Structure your response using bullet points or subheadings where helpful.  
                    - Clearly distinguish between **data-driven insights** and **potential interpretations or implications**.
-                
-                4. **Encourage Further Exploration**  
-                   - If the user’s question is broad, suggest specific angles they might explore.  
-                   - If there are gaps in the data, ask clarifying questions to refine the analysis.
                 
                 Now, using the above information, please craft a structured, insightful response tailored for **internal Breva employees analyzing customer data.**
 
