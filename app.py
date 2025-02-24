@@ -2,20 +2,18 @@
 import os
 import logging
 import streamlit as st
-from sentence_transformers import SentenceTransformer
 from anthropic import Anthropic
 import numpy as np
 from typing import Dict, List
 from pinecone import Pinecone
 import time
+import json
+import requests
 from colorama import Fore, Style
 import colorama
 colorama.init()
 
-import warnings
-warnings.filterwarnings('ignore', category=RuntimeWarning, module='torch._classes')
-
-# Debugging to get a better understanding of the code
+# Set up logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
@@ -27,7 +25,7 @@ logging.basicConfig(
 class VOCDatabaseQuerier:
     """
     This class queries:
-    1) Maps the user's question to a question_type.
+    1) Maps the user's question to a question_type using a simple keyword matching approach.
     2) Fetches the offline summary for that question_type (e.g. "desc_community_impact_summary").
     3) Uses Anthropic to produce a final answer based on that summary.
     """
@@ -46,11 +44,6 @@ class VOCDatabaseQuerier:
             raise ValueError("Anthropic API key not provided or found in environment. "
                              "Please pass it or set ANTHROPIC_API_KEY env var.")
 
-        # Using the SentenceTransformer model to embed the questions
-        logging.info("Loading SentenceTransformer model: all-MiniLM-L6-v2...")
-        self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-        logging.info("Embedding model loaded successfully.")
-
         # Connection to Pinecone
         logging.info(f"Connecting to Pinecone...")
         self.pc = Pinecone(api_key=pinecone_api_key)
@@ -58,9 +51,13 @@ class VOCDatabaseQuerier:
         self.index = self.pc.Index(index_name)
         
         # Get index stats to confirm connection
-        stats = self.index.describe_index_stats()
-        vector_count = stats.get('total_vector_count', 0)
-        logging.info(f"Connected to Pinecone index '{index_name}'. Vector count: {vector_count}")
+        try:
+            stats = self.index.describe_index_stats()
+            vector_count = stats.get('total_vector_count', 0)
+            logging.info(f"Connected to Pinecone index '{index_name}'. Vector count: {vector_count}")
+        except Exception as e:
+            logging.error(f"Error connecting to Pinecone: {e}")
+            raise
 
         # Initialize Anthropic client
         logging.info("Initializing Anthropic client...")
@@ -72,154 +69,125 @@ class VOCDatabaseQuerier:
             # Financial Challenges
             "financial_challenges_1": {
                 "context": "What specific challenges do you face in managing and forecasting your cash flow?",
-                "columns": ["What specific challenges do you face in managing and forecasting your cash flow?"]
+                "keywords": ["cash flow", "manage cash", "forecast", "forecasting", "cashflow"]
             },
             "financial_challenges_2": {
                 "context": "What specific financial tasks consume most of your time?",
-                "columns": ["What specific financial tasks consume most of your time, and how do you feel these tasks impact your ability to focus on growing your business?"]
+                "keywords": ["time consuming", "financial tasks", "consume time", "time spent"]
             },
             "financial_challenges_3": {
                 "context": "Tell us about a hard instance managing finances or getting a loan",
-                "columns": ["Please tell us about a recent instance where it was really hard for you to manage your finances, or to get financial help, such as a loan. What would have been the ideal solution?"]
+                "keywords": ["hard instance", "difficult", "challenge", "loan", "managing finances"]
             },
             "financial_challenges_4": {
                 "context": "Challenges with applying for loans",
-                "columns": ["What are the most significant challenges you face with applying for loans, and what do you wish you could improve?"]
+                "keywords": ["loan", "applying", "application", "credit", "approval"]
             },
 
             # Business Description
             "desc_business_brief": {
                 "context": "A brief description of the business",
-                "columns": [
-                    "Provide a brief description of your business",
-                    "Provide a brief description of your business. Include a description of your products/services"
-                ]
+                "keywords": ["business description", "about business", "what business", "company"]
             },
             "desc_primary_products": {
                 "context": "Primary products/services offered",
-                "columns": ["Detail the primary products/services offered by your business"]
+                "keywords": ["products", "services", "offerings", "what do you sell", "provide"]
             },
             "desc_community_impact": {
                 "context": "Impact on the community",
-                "columns": ["Describe how your business positively impacts your community"]
+                "keywords": ["community", "impact", "local", "society", "neighborhood"]
             },
             "desc_equity_inclusion": {
                 "context": "Efforts to promote equity and inclusion",
-                "columns": ["Describe efforts made by your business to promote equity and inclusion in the workplace and community"]
+                "keywords": ["equity", "inclusion", "diversity", "dei", "inclusive"]
             },
 
             # Business Goals and Growth
             "business_goals_1": {
                 "context": "Achievements and business goals",
-                "columns": [
-                    "What significant achievements have you made in your business? What are your business goals for the coming year?",
-                    "What significant achievements have you made in your business? What are your business goals for the next 12 months?"
-                ]
+                "keywords": ["goals", "achievements", "milestones", "growth", "plan"]
             },
             "business_goals_2": {
                 "context": "Daily tasks for a virtual CFO",
-                "columns": ["If there were no constraints, what tasks would you want an advanced technology like a virtual Chief Financial Officer to handle for you daily?"]
+                "keywords": ["cfo", "financial officer", "daily tasks", "finance management"]
             },
 
             # Financial Tools and Advisory
             "financial_tool_needs": {
                 "context": "Required features for financial management tool",
-                "columns": [
-                    "What key features do you need in a tool to better manage your cash and build your business credit? What is (or would be) your budget for such a solution?",
-                    "What key features do you need in a tool to better manage your cash and expenses? What is (or would be) your budget for such a solution?"
-                ]
+                "keywords": ["tool", "features", "financial management", "software", "app", "application"]
             },
 
             # Grant and Support
             "grant_usage": {
                 "context": "How grant funds will be used",
-                "columns": [
-                    "Provide a brief statement detailing your financial need for this grant and how the funds will be used to enhance community impact",
-                    "Provide a brief statement detailing how the funds will be used to enhance community impact"
-                ]
+                "keywords": ["grant", "funds", "money", "financial support", "use of"]
             },
 
             # Business Challenges
             "business_obstacles": {
                 "context": "Major business obstacles and solutions",
-                "columns": ["Describe major obstacles your company encountered and how you resolved them"]
+                "keywords": ["obstacles", "challenges", "problems", "issues", "overcome"]
             },
 
             # Additional Context
             "additional_context": {
                 "context": "Additional relevant information",
-                "columns": ["Please include any relevant information or context that you believe would be helpful for the judges to consider when reviewing your application"]
+                "keywords": ["additional", "other", "more information", "context", "relevant"]
             },
 
             # Financial Advisor Questions
             "financial_advisor_questions": {
                 "context": "Questions for financial advisor",
-                "columns": ["Please provide your top three (3) questions you would ask a financial advisor or business coach, about your business?"]
+                "keywords": ["advisor", "advice", "financial advisor", "questions", "ask"]
             }
         }
 
-        # Precompute embeddings for the question type contexts
-        self._prepare_type_context_embeddings()
-
-    def _prepare_type_context_embeddings(self):
-        """
-        Purpose: Precompute embeddings for the question type contexts.
-        Input: Question types and their contexts.
-        Output: Embeddings for each question type context.
-        """
-        self.type_embeddings = {}
-        for qtype, info in self.question_types.items():
-            ctx = info["context"]
-            # Using the SentenceTransformer model to encode the context
-            emb = self.embedding_model.encode(ctx, show_progress_bar=False)
-            self.type_embeddings[qtype] = emb
-
     def determine_question_type(self, user_query: str) -> str:
         """
-        Purpose: Determine the question type based on the user query. We use dot product for similarity.
+        Purpose: Determine the question type based on the user query using keyword matching.
         Input: User query.
         Output: Question type.
         """
-
-        # Vectorize the user query using same SentenceTransformer model
-        query_emb = self.embedding_model.encode(user_query, show_progress_bar=False)
-
-        best_type = None
-        best_score = float('-inf')
-
-        # For each question type and embedding, calculate the similarity
-        for qtype, emb in self.type_embeddings.items():
-            # Dot product for similarity
-            score = float(np.dot(query_emb, emb))
-            # If the score is greater than the best score, update the best score and type
-            if score > best_score:
-                best_score = score
-                best_type = qtype
-
-        logging.info(f"[determine_question_type] Query mapped to '{best_type}' (score={best_score:.4f})")
-        return best_type
+        user_query = user_query.lower()
+        
+        scores = {}
+        for qtype, info in self.question_types.items():
+            score = 0
+            for keyword in info["keywords"]:
+                if keyword.lower() in user_query:
+                    score += 1
+            scores[qtype] = score
+        
+        # Get the question type with the highest score
+        best_type = max(scores.items(), key=lambda x: x[1])
+        
+        # If no keywords matched, default to financial_challenges_1
+        if best_type[1] == 0:
+            logging.info(f"[determine_question_type] No keywords matched. Using default question type: financial_challenges_1")
+            return "financial_challenges_1"
+        
+        logging.info(f"[determine_question_type] Query mapped to '{best_type[0]}' (score={best_type[1]})")
+        return best_type[0]
 
     def get_offline_summary(self, question_type: str) -> str:
         """
-        Purpose: Fetch the offline summary for a given question type.
+        Purpose: Fetch the offline summary for a given question type from Pinecone.
         Input: Question type.
         Output: Offline summary.
         """
-
         # Append "_summary" to the question type to get the summary question type
         summary_qtype = f"{question_type}_summary"
         logging.info(f"Fetching offline summary for question_type='{summary_qtype}'")
         
         try:
-            # Query Pinecone for the summary
-            # First, create an embedding for the summary type (not needed for metadata filtering,
-            # but required for the query API)
-            dummy_query = f"Summary for {question_type}"
-            query_embedding = self.embedding_model.encode(dummy_query).tolist()
+            # For Pinecone, we need to provide a vector for the query
+            # Since we're only filtering by metadata, create a simple dummy vector
+            dummy_vector = [0.0] * 384  # Use the dimensionality of your Pinecone index
             
-            # Here we use Pinecone's query API to fetch the summary
+            # Query with metadata filter
             query_results = self.index.query(
-                vector=query_embedding,
+                vector=dummy_vector,
                 filter={"question_type": summary_qtype},
                 top_k=1,
                 include_metadata=True
@@ -324,7 +292,7 @@ class VOCDatabaseQuerier:
                 return str(response.content[0])
         except Exception as e:
             logging.error(f"Error calling Anthropic: {e}")
-            return "[Error generating final answer with offline summary]"
+            return f"[Error generating final answer: {str(e)}]"
 
 # ------------------------------------------------------------------------------
 # Streamlit Application
@@ -388,10 +356,14 @@ def main():
     if "querier" not in st.session_state:
         try:
             with st.spinner("Initializing chatbot..."):
+                # Get API keys from Streamlit secrets if available, otherwise use hardcoded values
+                pinecone_api_key = st.secrets.get("pinecone_api_key", "pcsk_5vnC9g_A8MYTbGufDu68CXWkiUCqPQY3bSLRULeJvSJEhxVNU8GHHfdMaYSjSAEKFETDAt")
+                anthropic_api_key = st.secrets.get("anthropic_api_key", "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")
+                
                 st.session_state.querier = VOCDatabaseQuerier(
-                    pinecone_api_key="pcsk_5vnC9g_A8MYTbGufDu68CXWkiUCqPQY3bSLRULeJvSJEhxVNU8GHHfdMaYSjSAEKFETDAt",
+                    pinecone_api_key=pinecone_api_key,
                     index_name="voc-index",
-                    anthropic_api_key="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"  
+                    anthropic_api_key=anthropic_api_key  
                 )
         except Exception as e:
             st.error(f"Error initializing the VOC Database Querier: {e}")
