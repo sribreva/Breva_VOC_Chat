@@ -268,6 +268,7 @@ class VOCDatabaseQuerier:
             
             # Build the final prompt including the conversation history
             final_prompt = self.build_prompt_with_offline_summary(user_query, offline_summary, conversation_history)
+            print(final_prompt)
             logging.info("FINAL PROMPT constructed.")
     
             # Call Anthropic to generate the final answer
