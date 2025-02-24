@@ -5,7 +5,7 @@ import streamlit as st
 from anthropic import Anthropic
 import numpy as np
 from typing import Dict, List
-import pinecone
+from pinecone import Pinecone
 import time
 import json
 import requests
@@ -44,11 +44,11 @@ class VOCDatabaseQuerier:
             raise ValueError("Anthropic API key not provided or found in environment. "
                              "Please pass it or set ANTHROPIC_API_KEY env var.")
 
-        # Connection to Pinecone
+        # Connection to Pinecone - using updated API
         logging.info(f"Connecting to Pinecone...")
-        pinecone.init(api_key=pinecone_api_key)
+        self.pc = Pinecone(api_key=pinecone_api_key)
         self.index_name = index_name
-        self.index = pinecone.Index(self.index_name)
+        self.index = self.pc.Index(self.index_name)
         
         # Get index stats to confirm connection
         try:
@@ -194,12 +194,13 @@ class VOCDatabaseQuerier:
             )
             
             # Check if results are empty
-            if not query_results.matches:
+            matches = getattr(query_results, 'matches', [])
+            if not matches:
                 logging.warning(f"No summary found for {summary_qtype}")
                 return ""
             
             # Extract the text from the metadata
-            summary_text = query_results.matches[0].metadata.get("text", "")
+            summary_text = matches[0].metadata.get("text", "")
             if not summary_text:
                 logging.warning(f"No text found in metadata for {summary_qtype}")
                 return ""
@@ -257,24 +258,21 @@ class VOCDatabaseQuerier:
         Input: User query.
         Output: Final answer.
         """
-        # 1. Determine the question type based on the user query
-        qtype = self.determine_question_type(user_query)
-        # 2. Fetch the offline summary for the question type
-        offline_summary = self.get_offline_summary(qtype)
-        if not offline_summary:
-            return (f"No offline summary found for question type '{qtype}'. "
-                    f"Try a different approach or run offline summarization first.")
-        
-        # 3. Build the final prompt for Anthropic
-        final_prompt = self.build_prompt_with_offline_summary(user_query, offline_summary)
-
-        # Now we need to print the final prompt for debugging
-        print(f"{Fore.GREEN}FINAL PROMPT:{Style.RESET_ALL}")
-        print(final_prompt)
-        
-        logging.info("FINAL PROMPT constructed.")
-
         try:
+            # 1. Determine the question type based on the user query
+            qtype = self.determine_question_type(user_query)
+            
+            # 2. Fetch the offline summary for the question type
+            offline_summary = self.get_offline_summary(qtype)
+            if not offline_summary:
+                return (f"No offline summary found for question type '{qtype}'. "
+                        f"Try a different approach or run offline summarization first.")
+            
+            # 3. Build the final prompt for Anthropic
+            final_prompt = self.build_prompt_with_offline_summary(user_query, offline_summary)
+            
+            logging.info("FINAL PROMPT constructed.")
+    
             # 4. Call Anthropic to generate the final answer
             response = self.anthropic.messages.create(
                 model="claude-3-5-sonnet-20241022",
@@ -285,14 +283,15 @@ class VOCDatabaseQuerier:
                     "content": final_prompt
                 }]
             )
+            
             # Handle response content extraction
             if hasattr(response.content[0], 'text'):
                 return response.content[0].text
             else:
                 return str(response.content[0])
         except Exception as e:
-            logging.error(f"Error calling Anthropic: {e}")
-            return f"[Error generating final answer: {str(e)}]"
+            logging.error(f"Error generating answer: {e}")
+            return f"[Error generating answer: {str(e)}]"
 
 # ------------------------------------------------------------------------------
 # Streamlit Application
@@ -409,8 +408,11 @@ def main():
         latest_user_query = st.session_state.messages[-1]["content"]
         # Spinner to indicate that the bot is generating
         with st.spinner("Generating answer..."):
-            answer = st.session_state.querier.generate_answer(latest_user_query)
-        st.session_state.messages.append({"role": "bot", "content": answer})
+            try:
+                answer = st.session_state.querier.generate_answer(latest_user_query)
+                st.session_state.messages.append({"role": "bot", "content": answer})
+            except Exception as e:
+                st.session_state.messages.append({"role": "bot", "content": f"Error: {str(e)}"})
         st.rerun()  
 
 if __name__ == "__main__":
