@@ -27,7 +27,7 @@ class VOCDatabaseQuerier:
     This class queries:
     1) Maps the user's question to a question_type using a simple keyword matching approach.
     2) Fetches the offline summary for that question_type (e.g. "desc_community_impact_summary").
-    3) Uses Anthropic to produce a final answer based on that summary.
+    3) Uses Anthropic to produce a final answer based on that summary and the full conversation history.
     """
 
     def __init__(
@@ -35,7 +35,7 @@ class VOCDatabaseQuerier:
         pinecone_api_key: str,
         index_name: str,
         anthropic_api_key: str
-        ):
+    ):
         logging.info("Initializing VOC Database Querier (Offline Summaries)...")
         
         # Validate API keys
@@ -66,7 +66,7 @@ class VOCDatabaseQuerier:
         self.anthropic = Anthropic(api_key=self.api_key)
         logging.info("Anthropic client initialized successfully.")
 
-        # Question Types the same as the VOC_map_reduce.py script
+        # Question Types as defined in VOC_map_reduce.py
         self.question_types = {
             # Financial Challenges
             "financial_challenges_1": {
@@ -147,9 +147,7 @@ class VOCDatabaseQuerier:
 
     def determine_question_type(self, user_query: str) -> str:
         """
-        Purpose: Determine the question type based on the user query using keyword matching.
-        Input: User query.
-        Output: Question type.
+        Determine the question type based on the user query using keyword matching.
         """
         user_query = user_query.lower()
         
@@ -166,7 +164,7 @@ class VOCDatabaseQuerier:
         
         # If no keywords matched, default to financial_challenges_1
         if best_type[1] == 0:
-            logging.info(f"[determine_question_type] No keywords matched. Using default question type: financial_challenges_1")
+            logging.info("[determine_question_type] No keywords matched. Using default question type: financial_challenges_1")
             return "financial_challenges_1"
         
         logging.info(f"[determine_question_type] Query mapped to '{best_type[0]}' (score={best_type[1]})")
@@ -174,20 +172,15 @@ class VOCDatabaseQuerier:
 
     def get_offline_summary(self, question_type: str) -> str:
         """
-        Purpose: Fetch the offline summary for a given question type from Pinecone.
-        Input: Question type.
-        Output: Offline summary.
+        Fetch the offline summary for a given question type from Pinecone.
         """
-        # Append "_summary" to the question type to get the summary question type
         summary_qtype = f"{question_type}_summary"
         logging.info(f"Fetching offline summary for question_type='{summary_qtype}'")
         
         try:
-            # For Pinecone, we need to provide a vector for the query
-            # Since we're only filtering by metadata, create a simple dummy vector
-            dummy_vector = [0.0] * 384  # Use the dimensionality of your Pinecone index
+            # For Pinecone, we provide a dummy vector for the query.
+            dummy_vector = [0.0] * 384  # Dimensionality as per your Pinecone index
             
-            # Query with metadata filter
             query_results = self.index.query(
                 vector=dummy_vector,
                 filter={"question_type": summary_qtype},
@@ -195,13 +188,11 @@ class VOCDatabaseQuerier:
                 include_metadata=True
             )
             
-            # Check if results are empty
             matches = getattr(query_results, 'matches', [])
             if not matches:
                 logging.warning(f"No summary found for {summary_qtype}")
                 return ""
             
-            # Extract the text from the metadata
             summary_text = matches[0].metadata.get("text", "")
             if not summary_text:
                 logging.warning(f"No text found in metadata for {summary_qtype}")
@@ -214,68 +205,52 @@ class VOCDatabaseQuerier:
             logging.error(f"Error fetching summary for {summary_qtype}: {e}")
             return ""
 
-    def build_prompt_with_offline_summary(self, user_query: str, summary: str) -> str:
+    def build_prompt_with_offline_summary(self, user_query: str, summary: str, conversation_history: List[Dict[str, str]]) -> str:
         """
-        Purpose: Build a prompt with the user query and offline summary for Anthropic.
-        Input: User query, offline summary.
-        Output: Prompt for Anthropic.
+        Build a prompt with the user query, offline summary, and conversation history.
         """
+        # Build conversation history string
+        conversation_history_text = ""
+        for msg in conversation_history:
+            if msg["role"] == "user":
+                conversation_history_text += f"User: {msg['content']}\n"
+            else:
+                conversation_history_text += f"Assistant: {msg['content']}\n"
+                
         prompt = f"""
-            You are a helpful assistant with access to a detailed Voice of Customer (VOC) offline summary. Your goal is to have a natural conversation with the user while providing a well-structured, comprehensive answer that incorporates significant parts of the summary.
+You are a friendly, knowledgeable assistant. Here's our conversation so far:
+{conversation_history_text}
 
-            **User Query**: {user_query}
+The user just asked: "{user_query}"
 
-            ---
-            **OFFLINE SUMMARY**:
-            {summary}
-            ---
+I am providing you with some detailed background information to help answer the question:
+---
+{summary}
+---
 
-            When crafting your response, please follow these guidelines:
-
-            1. **Structure Your Answer Clearly:**
-            - **Introduction:** Begin with a brief overview of the key challenges or insights derived from the summary.
-            - **Detailed Analysis:** Break your response into sections or bullet points. Use subheadings like "Credit Challenges," "Application Process Issues," etc., if relevant. Include important statistics, quotes, and details directly from the summary.
-            - **Conclusion:** Wrap up with a summary of the main points and ask a clarifying question to continue the conversation.
-
-            2. **Incorporate Relevant Chunks from the Summary:**
-            - Reference important data points (e.g., percentages, key quotes, or notable trends) from the summary.
-            - Ensure that you integrate at least 60-70% of the content from the summary into your explanation.
-
-            3. **Maintain a Conversational and Friendly Tone:**
-            - Engage naturally, as if you are having a friendly discussion with the user.
-            - Feel free to ask clarifying questions at the end to further explore the topic.
-
-            4. **Distinguish Between Data and Analysis:**
-            - Clearly indicate which parts of your response are directly drawn from the summary and which parts are your own interpretations or additional insights.
-
-            Our company is Breva, a financial management tool for small businesses, and this information is based on real user feedback from forums, surveys, and interviews. Use this context to ensure your response is both informative and actionable.
-
-            Now, please provide a structured, detailed, and friendly response based on the above information.
+Please respond in a clear, structured, and conversational manner. Integrate key details from the background information into your answer and feel free to ask clarifying questions if needed.
         """
         return prompt
 
-    def generate_answer(self, user_query: str) -> str:
+    def generate_answer(self, user_query: str, conversation_history: List[Dict[str, str]]) -> str:
         """
-        Purpose: Generate an answer using Anthropic based on the user query.
-        Input: User query.
-        Output: Final answer.
+        Generate an answer using Anthropic based on the user query and the full conversation history.
         """
         try:
-            # 1. Determine the question type based on the user query
+            # Determine the question type
             qtype = self.determine_question_type(user_query)
             
-            # 2. Fetch the offline summary for the question type
+            # Fetch the offline summary for the question type
             offline_summary = self.get_offline_summary(qtype)
             if not offline_summary:
                 return (f"No offline summary found for question type '{qtype}'. "
                         f"Try a different approach or run offline summarization first.")
             
-            # 3. Build the final prompt for Anthropic
-            final_prompt = self.build_prompt_with_offline_summary(user_query, offline_summary)
-            
+            # Build the final prompt including the conversation history
+            final_prompt = self.build_prompt_with_offline_summary(user_query, offline_summary, conversation_history)
             logging.info("FINAL PROMPT constructed.")
     
-            # 4. Call Anthropic to generate the final answer
+            # Call Anthropic to generate the final answer
             response = self.anthropic.messages.create(
                 model="claude-3-5-sonnet-20241022",
                 max_tokens=8192,
@@ -299,10 +274,9 @@ class VOCDatabaseQuerier:
 # Streamlit Application
 # ------------------------------------------------------------------------------
 def main():
-    # Define the page title 
     st.set_page_config(page_title="Thrive Grant Application Chatbot", page_icon="🤖", layout="centered")
     
-    # Very Basic CSS Styling for the chat messages
+    # Basic CSS Styling for chat messages
     st.markdown(
         """
         <style>
@@ -316,25 +290,24 @@ def main():
             margin: 8px 0;
             width: fit-content;
             max-width: 80%;
-            color: #000000;  /* dark text for readability */
+            color: #000000;
             font-size: 16px;
             line-height: 1.4;
         }
         .user {
-            background-color: #DCF8C6;  /* light green */
+            background-color: #DCF8C6;
             align-self: flex-end;
         }
         .bot {
-            background-color: #F1F0F0;  /* light gray */
+            background-color: #F1F0F0;
             align-self: flex-start;
         }
         .chat-box {
             display: flex;
             flex-direction: column;
         }
-        /* Style the text input area to have contrasting text */
         textarea {
-            color: #000000 !important;  /* force dark text */
+            color: #000000 !important;
             background-color: #ffffff !important;
         }
         </style>
@@ -342,35 +315,31 @@ def main():
         unsafe_allow_html=True
     )
 
-    # Sidebar with instructions
+    # Sidebar instructions
     st.sidebar.title("Instructions")
     st.sidebar.info(
         "Ask any questions regarding the Thrive Grant Application. "
         "The chatbot will respond using our VOC offline summaries."
     )
     
-    # Add note about secrets in the sidebar for development
     if not st.secrets.get("anthropic_api_key") or not st.secrets.get("pinecone_api_key"):
         st.sidebar.warning(
             "API keys not found in Streamlit secrets. "
             "Please add them in your Streamlit Cloud dashboard under Settings > Secrets."
         )
 
-    # Title and description
     st.title("Thrive Grant Application Chatbot 🤖")
     st.write("Have a conversation with the chatbot regarding the Thrive Grant Application questions.")
 
-    # Initialize the VOCDatabaseQuerier once and cache it
+    # Initialize the VOCDatabaseQuerier and cache it in session state
     if "querier" not in st.session_state:
         try:
             with st.spinner("Initializing chatbot..."):
-                # Get API keys from Streamlit secrets
                 pinecone_api_key = st.secrets.get("pinecone_api_key")
                 anthropic_api_key = st.secrets.get("anthropic_api_key")
                 
-                # Check if API keys are available
                 if not pinecone_api_key or not anthropic_api_key:
-                    st.error("API keys not found in Streamlit secrets. Add them in the Streamlit Cloud dashboard.")
+                    st.error("API keys not found in Streamlit secrets. Please add them in the Streamlit Cloud dashboard.")
                     st.info("Go to your app settings in Streamlit Cloud, navigate to 'Secrets', and add 'pinecone_api_key' and 'anthropic_api_key'.")
                     return
                 
@@ -383,22 +352,18 @@ def main():
             st.error(f"Error initializing the VOC Database Querier: {e}")
             return
 
-    # Define the memory component to store the chat messages
+    # Define memory to store chat messages
     if "messages" not in st.session_state:
         st.session_state.messages = []  
     
-    # The chat container to display the chat messages
+    # Chat container for displaying messages
     chat_container = st.container()
 
-    # Display the chat messages
     with chat_container:
         st.markdown('<div class="chat-box">', unsafe_allow_html=True)
-        # For each message in the chat, display it with the appropriate styling
         for msg in st.session_state.messages:
-            # If the message is from the user, display it on the right
             if msg["role"] == "user":
                 st.markdown(f'<div class="message user"><strong>You:</strong> {msg["content"]}</div>', unsafe_allow_html=True)
-            # If the message is from the bot, display it on the left
             else:
                 st.markdown(f'<div class="message bot"><strong>Chatbot:</strong> {msg["content"]}</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
@@ -411,20 +376,15 @@ def main():
         submit_button = st.form_submit_button(label="Send")
 
     if submit_button and user_input.strip():
-        # Append user message
         st.session_state.messages.append({"role": "user", "content": user_input})
-        # Update UI immediately before processing
         st.rerun()  
 
-    # If a new user message was added but no bot response yet, process it
-    # We'll check if the last message is from the user.
+    # Process the latest user message if no bot response is yet available
     if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
-        # Get the most recent user message to generate an answer
         latest_user_query = st.session_state.messages[-1]["content"]
-        # Spinner to indicate that the bot is generating
         with st.spinner("Generating answer..."):
             try:
-                answer = st.session_state.querier.generate_answer(latest_user_query)
+                answer = st.session_state.querier.generate_answer(latest_user_query, st.session_state.messages)
                 st.session_state.messages.append({"role": "bot", "content": answer})
             except Exception as e:
                 st.session_state.messages.append({"role": "bot", "content": f"Error: {str(e)}"})
