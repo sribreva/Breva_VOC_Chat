@@ -5,7 +5,7 @@ import streamlit as st
 from anthropic import Anthropic
 import numpy as np
 from typing import Dict, List
-from pinecone import Pinecone
+import pinecone
 import time
 import json
 import requests
@@ -46,9 +46,9 @@ class VOCDatabaseQuerier:
 
         # Connection to Pinecone
         logging.info(f"Connecting to Pinecone...")
-        self.pc = Pinecone(api_key=pinecone_api_key)
+        pinecone.init(api_key=pinecone_api_key)
         self.index_name = index_name
-        self.index = self.pc.Index(index_name)
+        self.index = pinecone.Index(self.index_name)
         
         # Get index stats to confirm connection
         try:
