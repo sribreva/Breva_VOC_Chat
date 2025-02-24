@@ -32,17 +32,19 @@ class VOCDatabaseQuerier:
 
     def __init__(
         self,
-        pinecone_api_key: str = "pcsk_5vnC9g_A8MYTbGufDu68CXWkiUCqPQY3bSLRULeJvSJEhxVNU8GHHfdMaYSjSAEKFETDAt",
-        index_name: str = "voc-index",
-        anthropic_api_key: str = None
+        pinecone_api_key: str,
+        index_name: str,
+        anthropic_api_key: str
         ):
         logging.info("Initializing VOC Database Querier (Offline Summaries)...")
-        # Load or read the Anthropic API key
-        self.api_key = anthropic_api_key or os.environ.get("ANTHROPIC_API_KEY", None)
-        # Debugging to see if the API key is being read correctly
-        if not self.api_key:
-            raise ValueError("Anthropic API key not provided or found in environment. "
-                             "Please pass it or set ANTHROPIC_API_KEY env var.")
+        
+        # Validate API keys
+        if not anthropic_api_key:
+            raise ValueError("Anthropic API key not provided")
+        if not pinecone_api_key:
+            raise ValueError("Pinecone API key not provided")
+            
+        self.api_key = anthropic_api_key
 
         # Connection to Pinecone - using updated API
         logging.info(f"Connecting to Pinecone...")
@@ -346,6 +348,13 @@ def main():
         "Ask any questions regarding the Thrive Grant Application. "
         "The chatbot will respond using our VOC offline summaries."
     )
+    
+    # Add note about secrets in the sidebar for development
+    if not st.secrets.get("anthropic_api_key") or not st.secrets.get("pinecone_api_key"):
+        st.sidebar.warning(
+            "API keys not found in Streamlit secrets. "
+            "Please add them in your Streamlit Cloud dashboard under Settings > Secrets."
+        )
 
     # Title and description
     st.title("Thrive Grant Application Chatbot 🤖")
@@ -355,14 +364,20 @@ def main():
     if "querier" not in st.session_state:
         try:
             with st.spinner("Initializing chatbot..."):
-                # Get API keys from Streamlit secrets if available, otherwise use hardcoded values
-                pinecone_api_key = st.secrets.get("pinecone_api_key", "pcsk_5vnC9g_A8MYTbGufDu68CXWkiUCqPQY3bSLRULeJvSJEhxVNU8GHHfdMaYSjSAEKFETDAt")
-                anthropic_api_key = st.secrets.get("anthropic_api_key", "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")
+                # Get API keys from Streamlit secrets
+                pinecone_api_key = st.secrets.get("pinecone_api_key")
+                anthropic_api_key = st.secrets.get("anthropic_api_key")
+                
+                # Check if API keys are available
+                if not pinecone_api_key or not anthropic_api_key:
+                    st.error("API keys not found in Streamlit secrets. Add them in the Streamlit Cloud dashboard.")
+                    st.info("Go to your app settings in Streamlit Cloud, navigate to 'Secrets', and add 'pinecone_api_key' and 'anthropic_api_key'.")
+                    return
                 
                 st.session_state.querier = VOCDatabaseQuerier(
                     pinecone_api_key=pinecone_api_key,
                     index_name="voc-index",
-                    anthropic_api_key=anthropic_api_key  
+                    anthropic_api_key=anthropic_api_key
                 )
         except Exception as e:
             st.error(f"Error initializing the VOC Database Querier: {e}")
