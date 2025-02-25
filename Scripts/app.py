@@ -254,7 +254,7 @@ class VOCDatabaseQuerier:
 
     def generate_answer(self, user_query: str, conversation_history: List[Dict[str, str]]) -> str:
         """
-        Generate an answer using Anthropic's extended thinking based on the user query and conversation history.
+        Generate an answer using Anthropic based on the user query and the full conversation history.
         """
         try:
             # Determine the question type
@@ -270,23 +270,19 @@ class VOCDatabaseQuerier:
             final_prompt = self.build_prompt_with_offline_summary(user_query, offline_summary, conversation_history)
             print(final_prompt)
             logging.info("FINAL PROMPT constructed.")
-            
-            # Call Anthropic's extended thinking API (beta endpoint)
-            response = self.anthropic.beta.messages.create(
+    
+            # Call Anthropic to generate the final answer
+            response = self.anthropic.messages.create(
                 model="claude-3-7-sonnet-20250219",
-                max_tokens=128000,  # Extended max tokens
-                thinking={
-                    "type": "enabled",
-                    "budget_tokens": 32000
-                },
+                max_tokens=8192,
+                temperature=0.1,
                 messages=[{
                     "role": "user",
                     "content": final_prompt
-                }],
-                betas=["output-128k-2025-02-19"]
+                }]
             )
             
-            # Extract the content from the response
+            # Handle response content extraction
             if hasattr(response.content[0], 'text'):
                 return response.content[0].text
             else:
