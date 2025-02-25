@@ -8,10 +8,7 @@ from typing import Dict, List
 from pinecone import Pinecone
 import time
 import json
-import requests
-from colorama import Fore, Style
-import colorama
-colorama.init()
+from datetime import datetime
 
 # Set up logging
 logging.basicConfig(
@@ -20,7 +17,7 @@ logging.basicConfig(
 )
 
 # ------------------------------------------------------------------------------
-# VOCDatabaseQuerier Class Definition 
+# VOCDatabaseQuerier Class Definition (unchanged) 
 # ------------------------------------------------------------------------------
 class VOCDatabaseQuerier:
     """
@@ -223,14 +220,14 @@ You are an internal assistant for **Breva**, a company focused on understanding 
 Your goal is to help Breva employees analyze and interpret customer responses, so they can better understand the financial challenges, funding needs, and business goals of SMBs. This is **not a customer-facing tool**—your responses should focus on helping Breva employees gain actionable insights from the collected data.
 
 ### **Contextual Information**
-To ensure continuity, here’s the conversation so far:
+To ensure continuity, here's the conversation so far:
 ---
 {conversation_history_text}
 ---
 
 The user just asked: **"{user_query}"**
 
-To assist them, I’m providing a relevant background summary extracted from our **Voice of Customer (VOC) database**, which contains real SMB responses regarding their financial challenges, funding concerns, and business strategies:
+To assist them, I'm providing a relevant background summary extracted from our **Voice of Customer (VOC) database**, which contains real SMB responses regarding their financial challenges, funding concerns, and business strategies:
 ---
 {summary}
 ---
@@ -289,161 +286,27 @@ Now, using the above information, please craft a structured, insightful response
             return f"[Error generating answer: {str(e)}]"
 
 # ------------------------------------------------------------------------------
-# Streamlit Application - Production-Ready UI Enhancements
+# Helper functions for the Streamlit app
 # ------------------------------------------------------------------------------
-def main():
-    # Configure page layout and title
-    st.set_page_config(
-        page_title="Thrive Grant Application Chatbot", 
-        page_icon="🤖", 
-        layout="centered",
-        initial_sidebar_state="expanded"
-    )
-    
-    # Enhanced CSS Styling for production-ready UI
-    # NOTE: The key change here is ensuring text color is set to a visible dark color.
-    st.markdown(
-        """
-        <style>
-        /* Global styles */
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f8f9fa; /* Light background */
-            color: #333333; /* Dark text to contrast background */
-        }
-        
-        /* Make sure placeholders and text areas use dark text on light background */
-        ::placeholder {
-            color: #666 !important;
-        }
-        textarea, input, select {
-            color: #000 !important; 
-            background-color: #fff !important;
-        }
-
-        /* Chat container */
-        .chat-container {
-            max-width: 800px;
-            margin: auto;
-            padding: 20px;
-            background: #ffffff; /* White container */
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            border-radius: 10px;
-        }
-
-        /* Message styling */
-        .message {
-            padding: 12px 18px;
-            border-radius: 20px;
-            margin: 10px 0;
-            font-size: 16px;
-            line-height: 1.5;
-            max-width: 80%;
-            word-wrap: break-word;
-            color: #000; /* Ensure message text is dark */
-        }
-        .user {
-            background-color: #DCF8C6;
-            align-self: flex-end;
-            text-align: right;
-        }
-        .bot {
-            background-color: #F1F0F0;
-            align-self: flex-start;
-            text-align: left;
-        }
-
-        /* Chat box container */
-        .chat-box {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            overflow-y: auto;
-            max-height: 60vh;
-        }
-
-        /* Scrollbar styling */
-        .chat-box::-webkit-scrollbar {
-            width: 8px;
-        }
-        .chat-box::-webkit-scrollbar-thumb {
-            background-color: #cccccc;
-            border-radius: 4px;
-        }
-
-        /* Button styling */
-        .clear-btn {
-            background-color: #dc3545;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .clear-btn:hover {
-            background-color: #c82333;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-
-    # Sidebar with instructions and Clear Chat button
-    st.sidebar.title("Instructions")
-    st.sidebar.info(
-        "Ask any questions regarding the Thrive Grant Application. "
-        "The chatbot will respond using our VOC offline summaries."
-    )
-    
-    if not st.secrets.get("anthropic_api_key") or not st.secrets.get("pinecone_api_key"):
-        st.sidebar.warning(
-            "API keys not found in Streamlit secrets. "
-            "Please add them in your Streamlit Cloud dashboard under Settings > Secrets."
-        )
-    
-    # Clear chat functionality
-    if st.sidebar.button("Clear Chat"):
+def initialize_session_state():
+    """Initialize session state variables if they don't exist"""
+    if "messages" not in st.session_state:
         st.session_state.messages = []
-        st.rerun()
-
-    # Header with company logo or title (Production-ready branding)
-    st.title("Thrive Grant Application Chatbot 🤖")
-    st.subheader("Empowering Breva Employees with Actionable Insights")
     
-    # Chat container for displaying messages
-    chat_container = st.container()
-    with chat_container:
-        st.markdown('<div class="chat-container"><div class="chat-box">', unsafe_allow_html=True)
-        if "messages" in st.session_state:
-            for msg in st.session_state.messages:
-                if msg["role"] == "user":
-                    st.markdown(f'<div class="message user"><strong>You:</strong> {msg["content"]}</div>', unsafe_allow_html=True)
-                else:
-                    st.markdown(f'<div class="message bot"><strong>Chatbot:</strong> {msg["content"]}</div>', unsafe_allow_html=True)
-        st.markdown('</div></div>', unsafe_allow_html=True)
+    if "conversation_started" not in st.session_state:
+        st.session_state.conversation_started = False
+        
+    if "theme_selection" not in st.session_state:
+        st.session_state.theme_selection = "light"
+        
+    if "query_count" not in st.session_state:
+        st.session_state.query_count = 0
+        
+    if "session_id" not in st.session_state:
+        st.session_state.session_id = f"session_{int(time.time())}"
 
-    st.markdown("---")
-
-    # Chat input - using chat_input if available (Streamlit 1.22+), fallback otherwise
-    if hasattr(st, 'chat_input'):
-        user_input = st.chat_input("Type your message here...")
-    else:
-        with st.form(key="chat_form", clear_on_submit=True):
-            user_input = st.text_area("Enter your query:", height=100, placeholder="Type your question here...")
-            submitted = st.form_submit_button(label="Send")
-            if submitted and user_input.strip():
-                st.session_state.messages.append({"role": "user", "content": user_input})
-                st.rerun()
-    
-    # If using st.chat_input and message is provided, process it.
-    if user_input and user_input.strip():
-        # Append user message only once to avoid duplication
-        if not st.session_state.get("last_user") or st.session_state.last_user != user_input:
-            st.session_state.messages.append({"role": "user", "content": user_input})
-            st.session_state.last_user = user_input
-            st.rerun()
-    
-    # Initialize the VOCDatabaseQuerier and cache it in session state if not already done
+def initialize_querier():
+    """Initialize the VOCDatabaseQuerier and store it in session state"""
     if "querier" not in st.session_state:
         try:
             with st.spinner("Initializing chatbot..."):
@@ -453,31 +316,354 @@ def main():
                 if not pinecone_api_key or not anthropic_api_key:
                     st.error("API keys not found in Streamlit secrets. Please add them in the Streamlit Cloud dashboard.")
                     st.info("Go to your app settings in Streamlit Cloud, navigate to 'Secrets', and add 'pinecone_api_key' and 'anthropic_api_key'.")
-                    return
+                    return False
                 
                 st.session_state.querier = VOCDatabaseQuerier(
                     pinecone_api_key=pinecone_api_key,
                     index_name="voc-index",
                     anthropic_api_key=anthropic_api_key
                 )
+                return True
         except Exception as e:
             st.error(f"Error initializing the VOC Database Querier: {e}")
-            return
+            return False
+    return True
 
-    # Define memory to store chat messages if not already defined
-    if "messages" not in st.session_state:
-        st.session_state.messages = []  
+def download_chat_history():
+    """Generate a downloadable file with the chat history"""
+    if not st.session_state.messages:
+        return None
     
-    # Process the latest user message if no bot response is yet available
-    if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
-        latest_user_query = st.session_state.messages[-1]["content"]
-        with st.spinner("Generating answer..."):
+    chat_export = {"session_id": st.session_state.session_id, "timestamp": datetime.now().isoformat(), "messages": st.session_state.messages}
+    return json.dumps(chat_export, indent=2)
+
+def display_messages():
+    """Display all messages in the chat history"""
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+def add_user_message(user_input):
+    """Add a user message to the chat history"""
+    st.session_state.messages.append({"role": "user", "content": user_input})
+    st.session_state.conversation_started = True
+    st.session_state.query_count += 1
+
+def add_assistant_message(content):
+    """Add an assistant message to the chat history"""
+    st.session_state.messages.append({"role": "assistant", "content": content})
+
+def process_user_message(user_input):
+    """Process a user message and generate a response"""
+    add_user_message(user_input)
+    
+    with st.chat_message("assistant"):
+        with st.spinner("Thinking..."):
             try:
-                answer = st.session_state.querier.generate_answer(latest_user_query, st.session_state.messages)
-                st.session_state.messages.append({"role": "bot", "content": answer})
+                answer = st.session_state.querier.generate_answer(user_input, st.session_state.messages[:-1])
+                add_assistant_message(answer)
+                st.markdown(answer)
             except Exception as e:
-                st.session_state.messages.append({"role": "bot", "content": f"Error: {str(e)}"})
-        st.rerun()
+                error_msg = f"Error: {str(e)}"
+                add_assistant_message(error_msg)
+                st.error(error_msg)
+
+def apply_custom_css_by_theme(theme):
+    """Apply custom CSS based on the selected theme"""
+    if theme == "light":
+        st.markdown("""
+        <style>
+            /* Light theme */
+            :root {
+                --background-color: #ffffff;
+                --text-color: #333333;
+                --accent-color: #4169E1;
+                --secondary-color: #f8f9fa;
+                --border-color: #e6e6e6;
+                --chat-user-bg: #e6f3ff;
+                --chat-assistant-bg: #f8f9fa;
+            }
+            
+            .main {
+                background-color: var(--background-color);
+                color: var(--text-color);
+            }
+            
+            /* Streamlit elements styling */
+            .stButton button {
+                background-color: var(--accent-color);
+                color: white;
+                border-radius: 5px;
+                border: none;
+                padding: 0.5rem 1rem;
+                transition: all 0.3s ease;
+            }
+            
+            .stButton button:hover {
+                background-color: #2a4db5;
+                box-shadow: 0 4px 8px rgba(65, 105, 225, 0.3);
+            }
+            
+            /* Chat message styling */
+            .stChatMessage [data-testid="chatAvatarIcon-user"] {
+                background-color: var(--accent-color);
+            }
+            
+            .stChatMessage [data-testid="chatAvatarIcon-assistant"] {
+                background-color: #6B46C1;
+            }
+            
+            /* Sidebar styling */
+            [data-testid="stSidebar"] {
+                background-color: var(--secondary-color);
+                border-right: 1px solid var(--border-color);
+                padding: 1rem;
+            }
+            
+            /* Input area styling */
+            [data-baseweb="input"] {
+                border-radius: 10px;
+                border: 1px solid var(--border-color);
+            }
+            
+            /* Status area styling */
+            .status-area {
+                background-color: var(--secondary-color);
+                border-radius: 10px;
+                padding: 1rem;
+                margin-bottom: 1rem;
+                border: 1px solid var(--border-color);
+            }
+            
+            /* Utility classes */
+            .highlight {
+                background-color: #fff9c4;
+                padding: 0.2rem 0.4rem;
+                border-radius: 3px;
+            }
+            
+            .footer {
+                margin-top: 2rem;
+                padding-top: 1rem;
+                border-top: 1px solid var(--border-color);
+                text-align: center;
+                font-size: 0.8rem;
+                color: #888;
+            }
+        </style>
+        """, unsafe_allow_html=True)
+    else:  # dark theme
+        st.markdown("""
+        <style>
+            /* Dark theme */
+            :root {
+                --background-color: #1E1E1E;
+                --text-color: #E0E0E0;
+                --accent-color: #6B46C1;
+                --secondary-color: #2D2D2D;
+                --border-color: #444444;
+                --chat-user-bg: #4A3880;
+                --chat-assistant-bg: #2D2D2D;
+            }
+            
+            .main {
+                background-color: var(--background-color);
+                color: var(--text-color);
+            }
+            
+            /* Streamlit elements styling */
+            .stButton button {
+                background-color: var(--accent-color);
+                color: white;
+                border-radius: 5px;
+                border: none;
+                padding: 0.5rem 1rem;
+                transition: all 0.3s ease;
+            }
+            
+            .stButton button:hover {
+                background-color: #805AD5;
+                box-shadow: 0 4px 8px rgba(107, 70, 193, 0.3);
+            }
+            
+            /* Chat message styling */
+            .stChatMessage [data-testid="chatAvatarIcon-user"] {
+                background-color: var(--accent-color);
+            }
+            
+            .stChatMessage [data-testid="chatAvatarIcon-assistant"] {
+                background-color: #3182CE;
+            }
+            
+            /* Sidebar styling */
+            [data-testid="stSidebar"] {
+                background-color: var(--secondary-color);
+                border-right: 1px solid var(--border-color);
+                padding: 1rem;
+            }
+            
+            /* Input area styling */
+            [data-baseweb="input"] {
+                border-radius: 10px;
+                border: 1px solid var(--border-color);
+                background-color: var(--secondary-color);
+                color: var(--text-color);
+            }
+            
+            /* Status area styling */
+            .status-area {
+                background-color: var(--secondary-color);
+                border-radius: 10px;
+                padding: 1rem;
+                margin-bottom: 1rem;
+                border: 1px solid var(--border-color);
+            }
+            
+            /* Utility classes */
+            .highlight {
+                background-color: #3c3c3c;
+                padding: 0.2rem 0.4rem;
+                border-radius: 3px;
+            }
+            
+            .footer {
+                margin-top: 2rem;
+                padding-top: 1rem;
+                border-top: 1px solid var(--border-color);
+                text-align: center;
+                font-size: 0.8rem;
+                color: #888;
+            }
+        </style>
+        """, unsafe_allow_html=True)
+
+# ------------------------------------------------------------------------------
+# Main Streamlit Application
+# ------------------------------------------------------------------------------
+def main():
+    # Set page configuration
+    st.set_page_config(
+        page_title="Breva Thrive Insights",
+        page_icon="📊",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+    
+    # Initialize session state
+    initialize_session_state()
+    
+    # Apply custom CSS based on theme
+    apply_custom_css_by_theme(st.session_state.theme_selection)
+    
+    # Sidebar configuration
+    with st.sidebar:
+        st.image("https://via.placeholder.com/150x50?text=Breva", width=150)
+        st.title("Thrive Grant Insights")
+        
+        # Theme selector
+        theme = st.radio("Theme", ["Light", "Dark"], index=0 if st.session_state.theme_selection == "light" else 1)
+        if (theme == "Light" and st.session_state.theme_selection != "light") or \
+           (theme == "Dark" and st.session_state.theme_selection != "dark"):
+            st.session_state.theme_selection = theme.lower()
+            st.rerun()
+        
+        st.divider()
+        
+        # App information and instructions
+        st.subheader("About this tool")
+        st.markdown("""
+        This tool helps Breva employees analyze Thrive Grant applications by providing insights from our Voice of Customer database.
+
+        **How to use:**
+        1. Type your question about SMB grant applications
+        2. Review the AI-generated insights
+        3. Export conversations for reporting
+        """)
+        
+        st.divider()
+        
+        # Session stats
+        st.subheader("Session Stats")
+        st.metric("Questions Asked", st.session_state.query_count)
+        st.metric("Session ID", st.session_state.session_id)
+        
+        st.divider()
+        
+        # Action buttons
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("📋 New Chat", use_container_width=True):
+                st.session_state.messages = []
+                st.session_state.conversation_started = False
+                st.session_state.query_count = 0
+                st.session_state.session_id = f"session_{int(time.time())}"
+                st.rerun()
+        
+        with col2:
+            if st.session_state.conversation_started:
+                chat_history = download_chat_history()
+                if chat_history:
+                    st.download_button(
+                        label="💾 Export",
+                        data=chat_history,
+                        file_name=f"breva_chat_{st.session_state.session_id}.json",
+                        mime="application/json",
+                        use_container_width=True
+                    )
+    
+    # Main content area
+    st.title("Thrive Grant Applicant Insights")
+    
+    # Status area
+    with st.container():
+        cols = st.columns([3, 1])
+        with cols[0]:
+            st.markdown("### AI-powered analysis of SMB grant applications")
+            st.markdown("Ask questions about financial challenges, business goals, or funding needs of applicants.")
+        with cols[1]:
+            st.markdown("<div style='text-align: right;'>", unsafe_allow_html=True)
+            st.markdown(f"**Status:** {'Active' if initialize_querier() else 'Error'}")
+            st.markdown(f"**Date:** {datetime.now().strftime('%b %d, %Y')}")
+            st.markdown("</div>", unsafe_allow_html=True)
+    
+    st.divider()
+    
+    # Initialize querier
+    if not initialize_querier():
+        st.stop()
+    
+    # Chat interface
+    if not st.session_state.conversation_started:
+        # Welcome message for new conversations
+        with st.chat_message("assistant"):
+            st.markdown("""
+            👋 Welcome to the Breva Thrive Grant Insights tool! 
+            
+            I can help you analyze applications by providing insights on:
+            
+            - **Financial challenges** faced by applicants
+            - **Business goals** and growth strategies
+            - **Funding needs** and intended use of grants
+            - **Community impact** of applicant businesses
+            - **Equity and inclusion** efforts by applicants
+            
+            How can I assist you today?
+            """)
+    else:
+        # Display existing messages
+        display_messages()
+    
+    # Chat input
+    user_input = st.chat_input("Ask a question about Thrive Grant applicants...")
+    if user_input:
+        process_user_message(user_input)
+    
+    # Footer
+    st.markdown("""
+    <div class="footer">
+        Breva Thrive Grant Insights Tool | Internal Use Only | © Breva 2025
+    </div>
+    """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
