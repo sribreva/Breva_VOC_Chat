@@ -47,7 +47,7 @@ class VOCDatabaseQuerier:
         self.api_key = anthropic_api_key
 
         # Connection to Pinecone - using updated API
-        logging.info(f"Connecting to Pinecone...")
+        logging.info("Connecting to Pinecone...")
         self.pc = Pinecone(api_key=pinecone_api_key)
         self.index_name = index_name
         self.index = self.pc.Index(self.index_name)
@@ -179,7 +179,7 @@ class VOCDatabaseQuerier:
         
         try:
             # For Pinecone, we provide a dummy vector for the query.
-            dummy_vector = [0.0] * 384  # Dimensionality as per your Pinecone index
+            dummy_vector = [0.0] * 384  # Adjust dimension to your index if needed
             
             query_results = self.index.query(
                 vector=dummy_vector,
@@ -301,24 +301,36 @@ def main():
     )
     
     # Enhanced CSS Styling for production-ready UI
+    # NOTE: The key change here is ensuring text color is set to a visible dark color.
     st.markdown(
         """
         <style>
         /* Global styles */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f8f9fa;
-            color: #333333;
+            background-color: #f8f9fa; /* Light background */
+            color: #333333; /* Dark text to contrast background */
         }
+        
+        /* Make sure placeholders and text areas use dark text on light background */
+        ::placeholder {
+            color: #666 !important;
+        }
+        textarea, input, select {
+            color: #000 !important; 
+            background-color: #fff !important;
+        }
+
         /* Chat container */
         .chat-container {
             max-width: 800px;
             margin: auto;
             padding: 20px;
-            background: #ffffff;
+            background: #ffffff; /* White container */
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             border-radius: 10px;
         }
+
         /* Message styling */
         .message {
             padding: 12px 18px;
@@ -328,6 +340,7 @@ def main():
             line-height: 1.5;
             max-width: 80%;
             word-wrap: break-word;
+            color: #000; /* Ensure message text is dark */
         }
         .user {
             background-color: #DCF8C6;
@@ -339,6 +352,7 @@ def main():
             align-self: flex-start;
             text-align: left;
         }
+
         /* Chat box container */
         .chat-box {
             display: flex;
@@ -347,11 +361,7 @@ def main():
             overflow-y: auto;
             max-height: 60vh;
         }
-        /* Chat input area */
-        .stTextInput>div>div>input {
-            padding: 10px;
-            font-size: 16px;
-        }
+
         /* Scrollbar styling */
         .chat-box::-webkit-scrollbar {
             width: 8px;
@@ -360,6 +370,7 @@ def main():
             background-color: #cccccc;
             border-radius: 4px;
         }
+
         /* Button styling */
         .clear-btn {
             background-color: #dc3545;
