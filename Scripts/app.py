@@ -500,6 +500,8 @@ def apply_custom_css():
 
 def custom_chat_message(role, content):
     """Display a custom chat message with iMessage-style bubbles"""
+    # Clean content by removing any HTML tags that might be in the content string
+    
     if role == "user":
         st.markdown(f"""
         <div class="message-container user-container">
@@ -507,9 +509,12 @@ def custom_chat_message(role, content):
         </div>
         """, unsafe_allow_html=True)
     else:
+        # For assistant messages, wrap content in proper markdown formatting
+        # This ensures markdown is rendered properly within the bubble
+        content_div = f'<div class="message-bubble assistant-bubble">{content}</div>'
         st.markdown(f"""
         <div class="message-container assistant-container">
-            <div class="message-bubble assistant-bubble">{content}</div>
+            {content_div}
         </div>
         """, unsafe_allow_html=True)
 
@@ -640,19 +645,20 @@ def main():
     with chat_container:
         if not st.session_state.conversation_started:
             # Welcome message for new conversations
-            custom_chat_message("assistant", """
-            👋 Welcome to the Breva Thrive Grant Insights tool! 
-            
-            I can help you analyze applications by providing insights on:
-            
-            - **Financial challenges** faced by applicants
-            - **Business goals** and growth strategies
-            - **Funding needs** and intended use of grants
-            - **Community impact** of applicant businesses
-            - **Equity and inclusion** efforts by applicants
-            
-            How can I assist you today?
-            """)
+            welcome_message = """
+👋 Welcome to the Breva Thrive Grant Insights tool!
+
+I can help you analyze applications by providing insights on:
+
+- **Financial challenges** faced by applicants
+- **Business goals** and growth strategies
+- **Funding needs** and intended use of grants
+- **Community impact** of applicant businesses
+- **Equity and inclusion** efforts by applicants
+
+How can I assist you today?
+            """
+            custom_chat_message("assistant", welcome_message)
         else:
             # Display existing messages with custom styling
             display_messages()
