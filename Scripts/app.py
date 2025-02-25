@@ -296,14 +296,14 @@ def initialize_session_state():
     if "conversation_started" not in st.session_state:
         st.session_state.conversation_started = False
         
-    if "theme_selection" not in st.session_state:
-        st.session_state.theme_selection = "light"
-        
     if "query_count" not in st.session_state:
         st.session_state.query_count = 0
         
     if "session_id" not in st.session_state:
         st.session_state.session_id = f"session_{int(time.time())}"
+        
+    if "temp_user_input" not in st.session_state:
+        st.session_state.temp_user_input = ""
 
 def initialize_querier():
     """Initialize the VOCDatabaseQuerier and store it in session state"""
@@ -337,11 +337,186 @@ def download_chat_history():
     chat_export = {"session_id": st.session_state.session_id, "timestamp": datetime.now().isoformat(), "messages": st.session_state.messages}
     return json.dumps(chat_export, indent=2)
 
+def apply_custom_css():
+    """Apply custom CSS for the dark theme iMessage-style chat"""
+    st.markdown("""
+    <style>
+        /* Dark theme base styling */
+        :root {
+            --background-color: #1E1E1E;
+            --text-color: #E0E0E0;
+            --accent-color: #6B46C1;
+            --secondary-color: #2D2D2D;
+            --border-color: #444444;
+            --user-bubble-color: #145EAB;
+            --assistant-bubble-color: #2D2D2D;
+        }
+        
+        body {
+            background-color: var(--background-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        
+        /* Override Streamlit defaults */
+        .main .block-container {
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+            max-width: 1000px;
+        }
+        
+        /* iMessage-style chat bubbles */
+        .stChatMessage {
+            background-color: transparent !important;
+            border: none !important;
+            padding: 0 !important;
+            margin-bottom: 12px !important;
+        }
+        
+        /* Hide the default chat message icons */
+        .stChatMessage [data-testid="chatAvatarIcon-user"],
+        .stChatMessage [data-testid="chatAvatarIcon-assistant"] {
+            display: none !important;
+        }
+        
+        /* Custom message bubble styling */
+        .message-container {
+            display: flex;
+            width: 100%;
+            margin-bottom: 16px;
+        }
+        
+        .user-container {
+            justify-content: flex-end;
+        }
+        
+        .assistant-container {
+            justify-content: flex-start;
+        }
+        
+        .message-bubble {
+            padding: 10px 16px;
+            border-radius: 18px;
+            max-width: 80%;
+            margin: 0;
+        }
+        
+        .user-bubble {
+            background-color: var(--user-bubble-color);
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+        
+        .assistant-bubble {
+            background-color: var(--assistant-bubble-color);
+            color: var(--text-color);
+            border-bottom-left-radius: 5px;
+        }
+        
+        /* Remove padding from message containers */
+        .stChatMessage > div:first-child {
+            padding: 0 !important;
+        }
+
+        /* Proper spacing for messages */
+        .message-container + .message-container {
+            margin-top: 8px;
+        }
+        
+        /* Sidebar styling */
+        [data-testid="stSidebar"] {
+            background-color: var(--secondary-color);
+            border-right: 1px solid var(--border-color);
+        }
+        
+        /* Input area styling */
+        [data-baseweb="input"] {
+            border-radius: 20px !important;
+            background-color: var(--secondary-color) !important;
+            border: 1px solid var(--border-color) !important;
+            color: var(--text-color) !important;
+        }
+        
+        /* Button styling */
+        .stButton button {
+            background-color: var(--accent-color) !important;
+            color: white !important;
+            border-radius: 20px !important;
+            border: none !important;
+            padding: 0.5rem 1rem !important;
+            transition: all 0.3s ease !important;
+        }
+        
+        .stButton button:hover {
+            background-color: #805AD5 !important;
+            box-shadow: 0 4px 8px rgba(107, 70, 193, 0.3) !important;
+        }
+        
+        /* Status area styling */
+        .status-area {
+            background-color: var(--secondary-color);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid var(--border-color);
+        }
+        
+        /* Footer styling */
+        .footer {
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+            font-size: 0.8rem;
+            color: #888;
+        }
+        
+        /* Custom divider */
+        .custom-divider {
+            border-top: 1px solid var(--border-color);
+            margin: 1.5rem 0;
+        }
+        
+        /* Override Streamlit chat input styling */
+        .stChatInputContainer {
+            padding-bottom: 1rem !important;
+            background-color: var(--background-color) !important;
+        }
+        
+        .stChatInputContainer > div {
+            background-color: var(--secondary-color) !important;
+            border-radius: 20px !important;
+            border: 1px solid var(--border-color) !important;
+        }
+        
+        /* Hide default chat message container styling */
+        .stChatMessageContent {
+            background-color: transparent !important;
+            padding: 0 !important;
+            border-radius: 0 !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+def custom_chat_message(role, content):
+    """Display a custom chat message with iMessage-style bubbles"""
+    if role == "user":
+        st.markdown(f"""
+        <div class="message-container user-container">
+            <div class="message-bubble user-bubble">{content}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown(f"""
+        <div class="message-container assistant-container">
+            <div class="message-bubble assistant-bubble">{content}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
 def display_messages():
-    """Display all messages in the chat history"""
+    """Display all messages in the chat history with custom styling"""
     for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+        custom_chat_message(message["role"], message["content"])
 
 def add_user_message(user_input):
     """Add a user message to the chat history"""
@@ -355,187 +530,22 @@ def add_assistant_message(content):
 
 def process_user_message(user_input):
     """Process a user message and generate a response"""
+    # Add user message to chat history
     add_user_message(user_input)
     
-    with st.chat_message("assistant"):
-        with st.spinner("Thinking..."):
-            try:
-                answer = st.session_state.querier.generate_answer(user_input, st.session_state.messages[:-1])
-                add_assistant_message(answer)
-                st.markdown(answer)
-            except Exception as e:
-                error_msg = f"Error: {str(e)}"
-                add_assistant_message(error_msg)
-                st.error(error_msg)
-
-def apply_custom_css_by_theme(theme):
-    """Apply custom CSS based on the selected theme"""
-    if theme == "light":
-        st.markdown("""
-        <style>
-            /* Light theme */
-            :root {
-                --background-color: #ffffff;
-                --text-color: #333333;
-                --accent-color: #4169E1;
-                --secondary-color: #f8f9fa;
-                --border-color: #e6e6e6;
-                --chat-user-bg: #e6f3ff;
-                --chat-assistant-bg: #f8f9fa;
-            }
-            
-            .main {
-                background-color: var(--background-color);
-                color: var(--text-color);
-            }
-            
-            /* Streamlit elements styling */
-            .stButton button {
-                background-color: var(--accent-color);
-                color: white;
-                border-radius: 5px;
-                border: none;
-                padding: 0.5rem 1rem;
-                transition: all 0.3s ease;
-            }
-            
-            .stButton button:hover {
-                background-color: #2a4db5;
-                box-shadow: 0 4px 8px rgba(65, 105, 225, 0.3);
-            }
-            
-            /* Chat message styling */
-            .stChatMessage [data-testid="chatAvatarIcon-user"] {
-                background-color: var(--accent-color);
-            }
-            
-            .stChatMessage [data-testid="chatAvatarIcon-assistant"] {
-                background-color: #6B46C1;
-            }
-            
-            /* Sidebar styling */
-            [data-testid="stSidebar"] {
-                background-color: var(--secondary-color);
-                border-right: 1px solid var(--border-color);
-                padding: 1rem;
-            }
-            
-            /* Input area styling */
-            [data-baseweb="input"] {
-                border-radius: 10px;
-                border: 1px solid var(--border-color);
-            }
-            
-            /* Status area styling */
-            .status-area {
-                background-color: var(--secondary-color);
-                border-radius: 10px;
-                padding: 1rem;
-                margin-bottom: 1rem;
-                border: 1px solid var(--border-color);
-            }
-            
-            /* Utility classes */
-            .highlight {
-                background-color: #fff9c4;
-                padding: 0.2rem 0.4rem;
-                border-radius: 3px;
-            }
-            
-            .footer {
-                margin-top: 2rem;
-                padding-top: 1rem;
-                border-top: 1px solid var(--border-color);
-                text-align: center;
-                font-size: 0.8rem;
-                color: #888;
-            }
-        </style>
-        """, unsafe_allow_html=True)
-    else:  # dark theme
-        st.markdown("""
-        <style>
-            /* Dark theme */
-            :root {
-                --background-color: #1E1E1E;
-                --text-color: #E0E0E0;
-                --accent-color: #6B46C1;
-                --secondary-color: #2D2D2D;
-                --border-color: #444444;
-                --chat-user-bg: #4A3880;
-                --chat-assistant-bg: #2D2D2D;
-            }
-            
-            .main {
-                background-color: var(--background-color);
-                color: var(--text-color);
-            }
-            
-            /* Streamlit elements styling */
-            .stButton button {
-                background-color: var(--accent-color);
-                color: white;
-                border-radius: 5px;
-                border: none;
-                padding: 0.5rem 1rem;
-                transition: all 0.3s ease;
-            }
-            
-            .stButton button:hover {
-                background-color: #805AD5;
-                box-shadow: 0 4px 8px rgba(107, 70, 193, 0.3);
-            }
-            
-            /* Chat message styling */
-            .stChatMessage [data-testid="chatAvatarIcon-user"] {
-                background-color: var(--accent-color);
-            }
-            
-            .stChatMessage [data-testid="chatAvatarIcon-assistant"] {
-                background-color: #3182CE;
-            }
-            
-            /* Sidebar styling */
-            [data-testid="stSidebar"] {
-                background-color: var(--secondary-color);
-                border-right: 1px solid var(--border-color);
-                padding: 1rem;
-            }
-            
-            /* Input area styling */
-            [data-baseweb="input"] {
-                border-radius: 10px;
-                border: 1px solid var(--border-color);
-                background-color: var(--secondary-color);
-                color: var(--text-color);
-            }
-            
-            /* Status area styling */
-            .status-area {
-                background-color: var(--secondary-color);
-                border-radius: 10px;
-                padding: 1rem;
-                margin-bottom: 1rem;
-                border: 1px solid var(--border-color);
-            }
-            
-            /* Utility classes */
-            .highlight {
-                background-color: #3c3c3c;
-                padding: 0.2rem 0.4rem;
-                border-radius: 3px;
-            }
-            
-            .footer {
-                margin-top: 2rem;
-                padding-top: 1rem;
-                border-top: 1px solid var(--border-color);
-                text-align: center;
-                font-size: 0.8rem;
-                color: #888;
-            }
-        </style>
-        """, unsafe_allow_html=True)
+    # Display user message with custom styling
+    custom_chat_message("user", user_input)
+    
+    # Generate assistant response
+    with st.spinner("Thinking..."):
+        try:
+            answer = st.session_state.querier.generate_answer(user_input, st.session_state.messages[:-1])
+            add_assistant_message(answer)
+            custom_chat_message("assistant", answer)
+        except Exception as e:
+            error_msg = f"Error: {str(e)}"
+            add_assistant_message(error_msg)
+            custom_chat_message("assistant", error_msg)
 
 # ------------------------------------------------------------------------------
 # Main Streamlit Application
@@ -552,22 +562,15 @@ def main():
     # Initialize session state
     initialize_session_state()
     
-    # Apply custom CSS based on theme
-    apply_custom_css_by_theme(st.session_state.theme_selection)
+    # Apply custom CSS for dark theme
+    apply_custom_css()
     
     # Sidebar configuration
     with st.sidebar:
         st.image("https://via.placeholder.com/150x50?text=Breva", width=150)
         st.title("Thrive Grant Insights")
         
-        # Theme selector
-        theme = st.radio("Theme", ["Light", "Dark"], index=0 if st.session_state.theme_selection == "light" else 1)
-        if (theme == "Light" and st.session_state.theme_selection != "light") or \
-           (theme == "Dark" and st.session_state.theme_selection != "dark"):
-            st.session_state.theme_selection = theme.lower()
-            st.rerun()
-        
-        st.divider()
+        st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
         
         # App information and instructions
         st.subheader("About this tool")
@@ -580,19 +583,19 @@ def main():
         3. Export conversations for reporting
         """)
         
-        st.divider()
+        st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
         
         # Session stats
         st.subheader("Session Stats")
         st.metric("Questions Asked", st.session_state.query_count)
         st.metric("Session ID", st.session_state.session_id)
         
-        st.divider()
+        st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
         
         # Action buttons
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("📋 New Chat", use_container_width=True):
+            if st.button("New Chat", use_container_width=True):
                 st.session_state.messages = []
                 st.session_state.conversation_started = False
                 st.session_state.query_count = 0
@@ -604,7 +607,7 @@ def main():
                 chat_history = download_chat_history()
                 if chat_history:
                     st.download_button(
-                        label="💾 Export",
+                        label="Export",
                         data=chat_history,
                         file_name=f"breva_chat_{st.session_state.session_id}.json",
                         mime="application/json",
@@ -626,17 +629,18 @@ def main():
             st.markdown(f"**Date:** {datetime.now().strftime('%b %d, %Y')}")
             st.markdown("</div>", unsafe_allow_html=True)
     
-    st.divider()
+    st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
     
     # Initialize querier
     if not initialize_querier():
         st.stop()
     
     # Chat interface
-    if not st.session_state.conversation_started:
-        # Welcome message for new conversations
-        with st.chat_message("assistant"):
-            st.markdown("""
+    chat_container = st.container()
+    with chat_container:
+        if not st.session_state.conversation_started:
+            # Welcome message for new conversations
+            custom_chat_message("assistant", """
             👋 Welcome to the Breva Thrive Grant Insights tool! 
             
             I can help you analyze applications by providing insights on:
@@ -649,9 +653,9 @@ def main():
             
             How can I assist you today?
             """)
-    else:
-        # Display existing messages
-        display_messages()
+        else:
+            # Display existing messages with custom styling
+            display_messages()
     
     # Chat input
     user_input = st.chat_input("Ask a question about Thrive Grant applicants...")
