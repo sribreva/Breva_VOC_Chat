@@ -218,35 +218,37 @@ class VOCDatabaseQuerier:
                 conversation_history_text += f"Assistant: {msg['content']}\n"
                 
         prompt = f"""
-You are an internal assistant for **Breva**, a company focused on understanding and supporting small and medium-sized businesses (SMBs). This chatbot is used **exclusively by Breva employees** to extract insights from data collected via our **Thrive Grant application**. 
 
-Your goal is to help Breva employees analyze and interpret customer responses, so they can better understand the financial challenges, funding needs, and business goals of SMBs. This is **not a customer-facing tool**—your responses should focus on helping Breva employees gain actionable insights from the collected data.
+                You are an internal assistant for **Breva**, a company focused on understanding and supporting small and medium-sized businesses (SMBs). This chatbot is used **exclusively by Breva employees** to extract insights from data collected via our **Thrive Grant application**. 
+                
+                Your goal is to help Breva employees analyze and interpret customer responses, so they can better understand the financial challenges, funding needs, and business goals of SMBs. This is **not a customer-facing tool**—your responses should focus on helping Breva employees gain actionable insights from the collected data.
+                
+                ### **Contextual Information**
+                To ensure continuity, here’s the conversation so far:
+                ---
+                {conversation_history}
+                ---
+                
+                The user just asked: **"{user_query}"**
+                
+                To assist them, I’m providing a relevant background summary extracted from our **Voice of Customer (VOC) database**, which contains real SMB responses regarding their financial challenges, funding concerns, and business strategies:
+                ---
+                {summary}
+                ---
+                
+                ### **Response Guidelines**
+                1. **Frame Your Answer for Breva Employees**  
+                   - Assume the user is a Breva employee analyzing customer responses, not an SMB owner seeking advice.  
+                   - Focus on **what insights can be drawn from the provided data** rather than providing direct guidance to the customer.  
+                   - Please provide statistics when available as this makes it more understandable. 
+                
+                2. **Use the Background Information Thoughtfully**  
+                   - Incorporate key insights from the summary without directly repeating them.  
+                   - Structure your response using bullet points or subheadings where helpful.  
+                   - Clearly distinguish between **data-driven insights** and **potential interpretations or implications**.
+                
+                Now, using the above information, please craft a structured, insightful response tailored for **internal Breva employees analyzing customer data.**
 
-### **Contextual Information**
-To ensure continuity, here’s the conversation so far:
----
-{conversation_history_text}
----
-
-The user just asked: **"{user_query}"**
-
-To assist them, I’m providing a relevant background summary extracted from our **Voice of Customer (VOC) database**, which contains real SMB responses regarding their financial challenges, funding concerns, and business strategies:
----
-{summary}
----
-
-### **Response Guidelines**
-1. **Frame Your Answer for Breva Employees**  
-   - Assume the user is a Breva employee analyzing customer responses, not an SMB owner seeking advice.  
-   - Focus on **what insights can be drawn from the provided data** rather than providing direct guidance to the customer.  
-   - Please provide statistics when available as this makes it more understandable. 
-
-2. **Use the Background Information Thoughtfully**  
-   - Incorporate key insights from the summary without directly repeating them.  
-   - Structure your response using bullet points or subheadings where helpful.  
-   - Clearly distinguish between **data-driven insights** and **potential interpretations or implications**.
-
-Now, using the above information, please craft a structured, insightful response tailored for **internal Breva employees analyzing customer data.**
         """
         return prompt
 
@@ -266,6 +268,7 @@ Now, using the above information, please craft a structured, insightful response
             
             # Build the final prompt including the conversation history
             final_prompt = self.build_prompt_with_offline_summary(user_query, offline_summary, conversation_history)
+            print(final_prompt)
             logging.info("FINAL PROMPT constructed.")
     
             # Call Anthropic to generate the final answer
@@ -289,95 +292,51 @@ Now, using the above information, please craft a structured, insightful response
             return f"[Error generating answer: {str(e)}]"
 
 # ------------------------------------------------------------------------------
-# Streamlit Application - Production-Ready UI Enhancements
+# Streamlit Application
 # ------------------------------------------------------------------------------
 def main():
-    # Configure page layout and title
-    st.set_page_config(
-        page_title="Thrive Grant Application Chatbot", 
-        page_icon="🤖", 
-        layout="centered",
-        initial_sidebar_state="expanded"
-    )
+    st.set_page_config(page_title="Thrive Grant Application Chatbot", page_icon="🤖", layout="centered")
     
-    # Enhanced CSS Styling for production-ready UI
+    # Basic CSS Styling for chat messages
     st.markdown(
         """
         <style>
-        /* Global styles */
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f8f9fa;
-            color: #333333;
-        }
-        /* Chat container */
         .chat-container {
             max-width: 800px;
-            margin: auto;
-            padding: 20px;
-            background: #ffffff;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            border-radius: 10px;
+            margin: 0 auto;
         }
-        /* Message styling */
         .message {
-            padding: 12px 18px;
-            border-radius: 20px;
-            margin: 10px 0;
-            font-size: 16px;
-            line-height: 1.5;
+            padding: 10px 15px;
+            border-radius: 15px;
+            margin: 8px 0;
+            width: fit-content;
             max-width: 80%;
-            word-wrap: break-word;
+            color: #000000;
+            font-size: 16px;
+            line-height: 1.4;
         }
         .user {
             background-color: #DCF8C6;
             align-self: flex-end;
-            text-align: right;
         }
         .bot {
             background-color: #F1F0F0;
             align-self: flex-start;
-            text-align: left;
         }
-        /* Chat box container */
         .chat-box {
             display: flex;
             flex-direction: column;
-            gap: 10px;
-            overflow-y: auto;
-            max-height: 60vh;
         }
-        /* Chat input area */
-        .stTextInput>div>div>input {
-            padding: 10px;
-            font-size: 16px;
-        }
-        /* Scrollbar styling */
-        .chat-box::-webkit-scrollbar {
-            width: 8px;
-        }
-        .chat-box::-webkit-scrollbar-thumb {
-            background-color: #cccccc;
-            border-radius: 4px;
-        }
-        /* Button styling */
-        .clear-btn {
-            background-color: #dc3545;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .clear-btn:hover {
-            background-color: #c82333;
+        textarea {
+            color: #000000 !important;
+            background-color: #ffffff !important;
         }
         </style>
         """,
         unsafe_allow_html=True
     )
 
-    # Sidebar with instructions and Clear Chat button
+    # Sidebar instructions
     st.sidebar.title("Instructions")
     st.sidebar.info(
         "Ask any questions regarding the Thrive Grant Application. "
@@ -389,50 +348,11 @@ def main():
             "API keys not found in Streamlit secrets. "
             "Please add them in your Streamlit Cloud dashboard under Settings > Secrets."
         )
-    
-    # Clear chat functionality
-    if st.sidebar.button("Clear Chat"):
-        st.session_state.messages = []
-        st.experimental_rerun()
 
-    # Header with company logo or title (Production-ready branding)
     st.title("Thrive Grant Application Chatbot 🤖")
-    st.subheader("Empowering Breva Employees with Actionable Insights")
-    
-    # Chat container for displaying messages
-    chat_container = st.container()
-    with chat_container:
-        st.markdown('<div class="chat-container"><div class="chat-box">', unsafe_allow_html=True)
-        if "messages" in st.session_state:
-            for msg in st.session_state.messages:
-                if msg["role"] == "user":
-                    st.markdown(f'<div class="message user"><strong>You:</strong> {msg["content"]}</div>', unsafe_allow_html=True)
-                else:
-                    st.markdown(f'<div class="message bot"><strong>Chatbot:</strong> {msg["content"]}</div>', unsafe_allow_html=True)
-        st.markdown('</div></div>', unsafe_allow_html=True)
+    st.write("Have a conversation with the chatbot regarding the Thrive Grant Application questions.")
 
-    st.markdown("---")
-
-    # Chat input - using chat_input if available (Streamlit 1.22+), fallback otherwise
-    if hasattr(st, 'chat_input'):
-        user_input = st.chat_input("Type your message here...")
-    else:
-        with st.form(key="chat_form", clear_on_submit=True):
-            user_input = st.text_area("Enter your query:", height=100, placeholder="Type your question here...")
-            submitted = st.form_submit_button(label="Send")
-            if submitted and user_input.strip():
-                st.session_state.messages.append({"role": "user", "content": user_input})
-                st.experimental_rerun()
-    
-    # If using st.chat_input and message is provided, process it.
-    if user_input and user_input.strip():
-        # Append user message only once to avoid duplication
-        if not st.session_state.get("last_user") or st.session_state.last_user != user_input:
-            st.session_state.messages.append({"role": "user", "content": user_input})
-            st.session_state.last_user = user_input
-            st.experimental_rerun()
-    
-    # Initialize the VOCDatabaseQuerier and cache it in session state if not already done
+    # Initialize the VOCDatabaseQuerier and cache it in session state
     if "querier" not in st.session_state:
         try:
             with st.spinner("Initializing chatbot..."):
@@ -453,10 +373,33 @@ def main():
             st.error(f"Error initializing the VOC Database Querier: {e}")
             return
 
-    # Define memory to store chat messages if not already defined
+    # Define memory to store chat messages
     if "messages" not in st.session_state:
         st.session_state.messages = []  
     
+    # Chat container for displaying messages
+    chat_container = st.container()
+
+    with chat_container:
+        st.markdown('<div class="chat-box">', unsafe_allow_html=True)
+        for msg in st.session_state.messages:
+            if msg["role"] == "user":
+                st.markdown(f'<div class="message user"><strong>You:</strong> {msg["content"]}</div>', unsafe_allow_html=True)
+            else:
+                st.markdown(f'<div class="message bot"><strong>Chatbot:</strong> {msg["content"]}</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # Chat input form
+    with st.form(key="chat_form", clear_on_submit=True):
+        user_input = st.text_area("Enter your query:", height=100, placeholder="Type your question here...")
+        submit_button = st.form_submit_button(label="Send")
+
+    if submit_button and user_input.strip():
+        st.session_state.messages.append({"role": "user", "content": user_input})
+        st.rerun()  
+
     # Process the latest user message if no bot response is yet available
     if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
         latest_user_query = st.session_state.messages[-1]["content"]
@@ -466,7 +409,7 @@ def main():
                 st.session_state.messages.append({"role": "bot", "content": answer})
             except Exception as e:
                 st.session_state.messages.append({"role": "bot", "content": f"Error: {str(e)}"})
-        st.experimental_rerun()
+        st.rerun()  
 
 if __name__ == "__main__":
     main()
