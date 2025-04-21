@@ -877,36 +877,24 @@ def display_messages():
         st.markdown('</div>', unsafe_allow_html=True)
 
 
-
 def display_welcome_message():
-    """Display an enhanced welcome message using Streamlit's native components"""
-    welcome_container = st.container()
+    """Display an enhanced welcome message with formatting"""
+    welcome_message = """
+    <h3 style="color: var(--breva-primary-light);">👋 Welcome to the Breva Thrive Grant Insights tool!</h3>
     
-    # Get the current time string
-    current_time = datetime.now().strftime("%I:%M %p")
+    <p>I can help you analyze applications by providing data-driven insights on:</p>
     
-    with welcome_container:
-        st.markdown(f"""
-        <div class="message-container assistant-container">
-            <div class="message-bubble assistant-bubble">
-                <h3 style="color: var(--breva-primary-light);">👋 Welcome to the Breva Thrive Grant Insights tool!</h3>
-                
-                <p>I can help you analyze applications by providing data-driven insights on:</p>
-                
-                <ul>
-                    <li><strong style="color: var(--breva-secondary);">Financial challenges</strong> faced by applicants</li>
-                    <li><strong style="color: var(--breva-secondary);">Business goals</strong> and growth strategies</li>
-                    <li><strong style="color: var(--breva-secondary);">Funding needs</strong> and intended use of grants</li>
-                    <li><strong style="color: var(--breva-secondary);">Community impact</strong> of applicant businesses</li>
-                    <li><strong style="color: var(--breva-secondary);">Equity and inclusion</strong> efforts by applicants</li>
-                </ul>
-                
-                <p>Ask me a question to get started with your data exploration!</p>
-                
-                <div class="message-time">{current_time}</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+    <ul>
+        <li><strong style="color: var(--breva-secondary);">Financial challenges</strong> faced by applicants</li>
+        <li><strong style="color: var(--breva-secondary);">Business goals</strong> and growth strategies</li>
+        <li><strong style="color: var(--breva-secondary);">Funding needs</strong> and intended use of grants</li>
+        <li><strong style="color: var(--breva-secondary);">Community impact</strong> of applicant businesses</li>
+        <li><strong style="color: var(--breva-secondary);">Equity and inclusion</strong> efforts by applicants</li>
+    </ul>
+    
+    <p>Ask me a question to get started with your data exploration!</p>
+    """
+    custom_chat_message("assistant", welcome_message, is_html=True)
 
 def create_status_area():
     """Create an enhanced status area with metrics and info"""
@@ -1058,24 +1046,15 @@ def main():
     if not initialize_querier():
         st.stop()
     
-    # Chat interface - using a single container for all chat content
-    with st.container():
-        # Use a single chat area container
-        st.markdown('<div class="chat-area">', unsafe_allow_html=True)
-        
+    # Chat interface
+    chat_container = st.container()
+    with chat_container:
         if not st.session_state.conversation_started:
             # Welcome message for new conversations
             display_welcome_message()
         else:
-            # Display existing messages
-            for idx, message in enumerate(st.session_state.messages):
-                # Generate a consistent timestamp for each message
-                timestamp = (datetime.now() - timedelta(minutes=len(st.session_state.messages) - idx)).strftime("%I:%M %p")
-                
-                # For normal messages, use the custom_chat_message function
-                custom_chat_message(message["role"], message["content"], timestamp)
-        
-        st.markdown('</div>', unsafe_allow_html=True)
+            # Display existing messages with custom styling
+            display_messages()
     
     # Chat input
     user_input = st.chat_input("Ask a question about Thrive Grant applicants...")
