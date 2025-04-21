@@ -740,12 +740,11 @@ def custom_chat_message(role, content, timestamp=None, is_html=False):
     """Display a custom chat message with enhanced styling and optional timestamp"""
     current_time = timestamp or datetime.now().strftime("%I:%M %p")
     
-    # Escape HTML if the content is not flagged as HTML
+    # Escape HTML only if it's not flagged as HTML content
     if not is_html:
-        content = html.escape(content)  # Escape any special characters to avoid HTML issues
+        content = html.escape(content)
     
     if role == "user":
-        # Proper nesting of div tags and correct placement of the timestamp
         message_html = f"""
         <div class="message-container user-container">
             <div class="message-bubble user-bubble">
@@ -755,7 +754,6 @@ def custom_chat_message(role, content, timestamp=None, is_html=False):
         </div>
         """
     else:
-        # For assistant messages, maintain the structure
         message_html = f"""
         <div class="message-container assistant-container">
             <div class="message-bubble assistant-bubble">
@@ -765,9 +763,8 @@ def custom_chat_message(role, content, timestamp=None, is_html=False):
         </div>
         """
     
-    # Display the message using Streamlit
+    # Ensure no HTML issues when displaying the message
     st.markdown(message_html, unsafe_allow_html=True)
-
 
 def create_breva_card(title, content, icon=None):
     """Create a custom styled card component"""
