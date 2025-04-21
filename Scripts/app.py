@@ -68,77 +68,101 @@ class VOCDatabaseQuerier:
             # Financial Challenges
             "financial_challenges_1": {
                 "context": "What specific challenges do you face in managing and forecasting your cash flow?",
-                "keywords": ["cash flow", "manage cash", "forecast", "forecasting", "cashflow"]
+                "columns": ["What specific challenges do you face in managing and forecasting your cash flow?"]
             },
             "financial_challenges_2": {
                 "context": "What specific financial tasks consume most of your time?",
-                "keywords": ["time consuming", "financial tasks", "consume time", "time spent"]
+                "columns": ["What specific financial tasks consume most of your time, and how do you feel these tasks impact your ability to focus on growing your business?"]
             },
             "financial_challenges_3": {
                 "context": "Tell us about a hard instance managing finances or getting a loan",
-                "keywords": ["hard instance", "difficult", "challenge", "loan", "managing finances"]
+                "columns": ["Please tell us about a recent instance where it was really hard for you to manage your finances, or to get financial help, such as a loan. What would have been the ideal solution?"]
             },
             "financial_challenges_4": {
                 "context": "Challenges with applying for loans",
-                "keywords": ["loan", "applying", "application", "credit", "approval"]
+                "columns": ["What are the most significant challenges you face with applying for loans, and what do you wish you could improve?"]
             },
 
             # Business Description
             "desc_business_brief": {
                 "context": "A brief description of the business",
-                "keywords": ["business description", "about business", "what business", "company"]
+                "columns": [
+                    "Provide a brief description of your business",
+                    "Provide a brief description of your business. Include a description of your products/services"
+                ]
             },
             "desc_primary_products": {
                 "context": "Primary products/services offered",
-                "keywords": ["products", "services", "offerings", "what do you sell", "provide"]
+                "columns": ["Detail the primary products/services offered by your business"]
             },
             "desc_community_impact": {
                 "context": "Impact on the community",
-                "keywords": ["community", "impact", "local", "society", "neighborhood"]
+                "columns": ["Describe how your business positively impacts your community"]
             },
             "desc_equity_inclusion": {
                 "context": "Efforts to promote equity and inclusion",
-                "keywords": ["equity", "inclusion", "diversity", "dei", "inclusive"]
+                "columns": ["Describe efforts made by your business to promote equity and inclusion in the workplace and community"]
             },
 
             # Business Goals and Growth
             "business_goals_1": {
                 "context": "Achievements and business goals",
-                "keywords": ["goals", "achievements", "milestones", "growth", "plan"]
+                "columns": [
+                    "What significant achievements have you made in your business? What are your business goals for the coming year?",
+                    "What significant achievements have you made in your business? What are your business goals for the next 12 months?"
+                ]
             },
             "business_goals_2": {
                 "context": "Daily tasks for a virtual CFO",
-                "keywords": ["cfo", "financial officer", "daily tasks", "finance management"]
+                "columns": ["If there were no constraints, what tasks would you want an advanced technology like a virtual Chief Financial Officer to handle for you daily?"]
             },
 
             # Financial Tools and Advisory
             "financial_tool_needs": {
                 "context": "Required features for financial management tool",
-                "keywords": ["tool", "features", "financial management", "software", "app", "application"]
+                "columns": [
+                    "What key features do you need in a tool to better manage your cash and build your business credit? What is (or would be) your budget for such a solution?",
+                    "What key features do you need in a tool to better manage your cash and expenses? What is (or would be) your budget for such a solution?"
+                ]
             },
 
             # Grant and Support
             "grant_usage": {
                 "context": "How grant funds will be used",
-                "keywords": ["grant", "funds", "money", "financial support", "use of"]
+                "columns": [
+                    "Provide a brief statement detailing your financial need for this grant and how the funds will be used to enhance community impact",
+                    "Provide a brief statement detailing how the funds will be used to enhance community impact"
+                ]
             },
 
             # Business Challenges
             "business_obstacles": {
                 "context": "Major business obstacles and solutions",
-                "keywords": ["obstacles", "challenges", "problems", "issues", "overcome"]
+                "columns": ["Describe major obstacles your company encountered and how you resolved them"]
             },
 
             # Additional Context
             "additional_context": {
                 "context": "Additional relevant information",
-                "keywords": ["additional", "other", "more information", "context", "relevant"]
+                "columns": ["Please include any relevant information or context that you believe would be helpful for the judges to consider when reviewing your application"]
             },
 
             # Financial Advisor Questions
             "financial_advisor_questions": {
                 "context": "Questions for financial advisor",
-                "keywords": ["advisor", "advice", "financial advisor", "questions", "ask"]
+                "columns": ["Please provide your top three (3) questions you would ask a financial advisor or business coach, about your business?"]
+            },
+
+            # Financial assistance rationale
+            "reason_financial_assistance": {
+                "context": "What is your main reason for seeking financial assistance for your business?",
+                "columns": ["What is your main reason for seeking financial assistance for your business?"]
+            },
+
+            # Planning responsibility
+            "financial_planning_responsible": {
+                "context": "Who handles the financial planning and cash flow tracking at your business?",
+                "columns": ["Who handles the financial planning and cash flow tracking at your business?"]
             }
         }
 
@@ -320,7 +344,7 @@ def initialize_querier():
                 
                 st.session_state.querier = VOCDatabaseQuerier(
                     pinecone_api_key=pinecone_api_key,
-                    index_name="voc-index",
+                    index_name="voc-index-2025-q2",
                     anthropic_api_key=anthropic_api_key
                 )
                 return True
