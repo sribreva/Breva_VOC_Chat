@@ -882,8 +882,11 @@ def display_welcome_message():
     """Display an enhanced welcome message using Streamlit's native components"""
     welcome_container = st.container()
     
+    # Get the current time string
+    current_time = datetime.now().strftime("%I:%M %p")
+    
     with welcome_container:
-        st.markdown("""
+        st.markdown(f"""
         <div class="message-container assistant-container">
             <div class="message-bubble assistant-bubble">
                 <h3 style="color: var(--breva-primary-light);">👋 Welcome to the Breva Thrive Grant Insights tool!</h3>
@@ -900,10 +903,10 @@ def display_welcome_message():
                 
                 <p>Ask me a question to get started with your data exploration!</p>
                 
-                <div class="message-time">{datetime.now().strftime("%I:%M %p")}</div>
+                <div class="message-time">{current_time}</div>
             </div>
         </div>
-        """.format(datetime=datetime), unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
 def create_status_area():
     """Create an enhanced status area with metrics and info"""
