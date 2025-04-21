@@ -10,7 +10,6 @@ import time
 import json
 from datetime import datetime, timedelta
 import html
-import textwrap
 
 # Set up logging
 logging.basicConfig(
@@ -734,40 +733,32 @@ def apply_custom_css():
     """, unsafe_allow_html=True)
 
 
-
-import html
-
-def custom_chat_message(role: str,
-                        content: str,
-                        timestamp: str | None = None,
-                        is_html: bool = False):
-    """Render chat bubbles with optional raw HTML."""
+def custom_chat_message(role, content, timestamp=None):
+    """Display a custom chat message with enhanced styling and optional timestamp"""
     current_time = timestamp or datetime.now().strftime("%I:%M %p")
-
-    # 🔒 Escape only when the payload is plain text
-    if is_html:
-        content = textwrap.dedent(content).strip()
-    else:
-        content = html.escape(content)
-
+    
+    # Escape HTML to prevent rendering errors
+    content = html.escape(content)
+    
     if role == "user":
-        bubble = f"""
+        st.markdown(f"""
         <div class="message-container user-container">
             <div class="message-bubble user-bubble">
                 {content}
                 <div class="message-time">{current_time}</div>
             </div>
-        </div>"""
+        </div>
+        """, unsafe_allow_html=True)
     else:
-        bubble = f"""
+        # For assistant messages
+        st.markdown(f"""
         <div class="message-container assistant-container">
             <div class="message-bubble assistant-bubble">
                 {content}
                 <div class="message-time">{current_time}</div>
             </div>
-        </div>"""
-
-    st.markdown(textwrap.dedent(bubble), unsafe_allow_html=True)
+        </div>
+        """, unsafe_allow_html=True)
 
 
 def create_breva_card(title, content, icon=None):
@@ -882,25 +873,25 @@ def display_messages():
 
 
 def display_welcome_message():
-    """Assistant welcome banner (dedented so no stray code)."""
-    welcome_message = textwrap.dedent("""
-    <h3 style="color: var(--breva-primary-light);">
-        👋 Welcome to the Breva Thrive Grant Insights tool!
-    </h3>
-
-    <p>I can help you analyze applications by providing data‑driven insights on:</p>
-    <ul>
-        <li><strong style="color: var(--breva-secondary);">Financial challenges</strong> faced by applicants</li>
-        <li><strong style="color: var(--breva-secondary);">Business goals</strong> and growth strategies</li>
-        <li><strong style="color: var(--breva-secondary);">Funding needs</strong> and intended use of grants</li>
-        <li><strong style="color: var(--breva-secondary);">Community impact</strong> of applicant businesses</li>
-        <li><strong style="color: var(--breva-secondary);">Equity and inclusion</strong> efforts by applicants</li>
-    </ul>
-
-    <p>Ask me a question to get started with your data exploration!</p>
-    """)
-    custom_chat_message("assistant", welcome_message, is_html=True)
-
+    """Display an enhanced welcome message using Streamlit's native components"""
+    with st.container():
+        st.markdown("""
+        <h3 style="color: var(--breva-primary-light);">👋 Welcome to the Breva Thrive Grant Insights tool!</h3>
+        """, unsafe_allow_html=True)
+        
+        st.write("I can help you analyze applications by providing data-driven insights on:")
+        
+        st.markdown("""
+        <ul>
+            <li><strong style="color: var(--breva-secondary);">Financial challenges</strong> faced by applicants</li>
+            <li><strong style="color: var(--breva-secondary);">Business goals</strong> and growth strategies</li>
+            <li><strong style="color: var(--breva-secondary);">Funding needs</strong> and intended use of grants</li>
+            <li><strong style="color: var(--breva-secondary);">Community impact</strong> of applicant businesses</li>
+            <li><strong style="color: var(--breva-secondary);">Equity and inclusion</strong> efforts by applicants</li>
+        </ul>
+        """, unsafe_allow_html=True)
+        
+        st.write("Ask me a question to get started with your data exploration!")
 
 def create_status_area():
     """Create an enhanced status area with metrics and info"""
