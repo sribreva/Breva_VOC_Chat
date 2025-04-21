@@ -10,6 +10,7 @@ import time
 import json
 from datetime import datetime, timedelta
 import html
+import textwrap
 
 # Set up logging
 logging.basicConfig(
@@ -736,35 +737,38 @@ def apply_custom_css():
 
 import html
 
-def custom_chat_message(role, content, timestamp=None, is_html=False):
-    """Display a custom chat message with enhanced styling and optional timestamp"""
+def custom_chat_message(role: str,
+                        content: str,
+                        timestamp: str | None = None,
+                        is_html: bool = False):
+    """Render chat bubbles with optional raw HTML."""
     current_time = timestamp or datetime.now().strftime("%I:%M %p")
-    
-    # Escape HTML only if it's not flagged as HTML content
-    if not is_html:
+
+    # 🔒 Escape only when the payload is plain text
+    if is_html:
+        content = textwrap.dedent(content).strip()
+    else:
         content = html.escape(content)
-    
+
     if role == "user":
-        message_html = f"""
+        bubble = f"""
         <div class="message-container user-container">
             <div class="message-bubble user-bubble">
                 {content}
                 <div class="message-time">{current_time}</div>
             </div>
-        </div>
-        """
+        </div>"""
     else:
-        message_html = f"""
+        bubble = f"""
         <div class="message-container assistant-container">
             <div class="message-bubble assistant-bubble">
                 {content}
                 <div class="message-time">{current_time}</div>
             </div>
-        </div>
-        """
-    
-    # Ensure no HTML issues when displaying the message
-    st.markdown(message_html, unsafe_allow_html=True)
+        </div>"""
+
+    st.markdown(textwrap.dedent(bubble), unsafe_allow_html=True)
+
 
 def create_breva_card(title, content, icon=None):
     """Create a custom styled card component"""
@@ -878,12 +882,13 @@ def display_messages():
 
 
 def display_welcome_message():
-    """Display an enhanced welcome message with formatting"""
-    welcome_message = """
-    <h3 style="color: var(--breva-primary-light);">👋 Welcome to the Breva Thrive Grant Insights tool!</h3>
-    
-    <p>I can help you analyze applications by providing data-driven insights on:</p>
-    
+    """Assistant welcome banner (dedented so no stray code)."""
+    welcome_message = textwrap.dedent("""
+    <h3 style="color: var(--breva-primary-light);">
+        👋 Welcome to the Breva Thrive Grant Insights tool!
+    </h3>
+
+    <p>I can help you analyze applications by providing data‑driven insights on:</p>
     <ul>
         <li><strong style="color: var(--breva-secondary);">Financial challenges</strong> faced by applicants</li>
         <li><strong style="color: var(--breva-secondary);">Business goals</strong> and growth strategies</li>
@@ -891,10 +896,11 @@ def display_welcome_message():
         <li><strong style="color: var(--breva-secondary);">Community impact</strong> of applicant businesses</li>
         <li><strong style="color: var(--breva-secondary);">Equity and inclusion</strong> efforts by applicants</li>
     </ul>
-    
+
     <p>Ask me a question to get started with your data exploration!</p>
-    """
+    """)
     custom_chat_message("assistant", welcome_message, is_html=True)
+
 
 def create_status_area():
     """Create an enhanced status area with metrics and info"""
