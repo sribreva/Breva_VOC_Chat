@@ -731,14 +731,9 @@ def apply_custom_css():
     </style>
     """, unsafe_allow_html=True)
 
-
-
 def custom_chat_message(role, content, timestamp=None):
     """Display a custom chat message with enhanced styling and optional timestamp"""
     current_time = timestamp or datetime.now().strftime("%I:%M %p")
-    
-    # Escape HTML to prevent rendering errors
-    content = html.escape(content)
     
     if role == "user":
         st.markdown(f"""
@@ -759,7 +754,6 @@ def custom_chat_message(role, content, timestamp=None):
             </div>
         </div>
         """, unsafe_allow_html=True)
-
 
 def create_breva_card(title, content, icon=None):
     """Create a custom styled card component"""
@@ -793,6 +787,7 @@ def create_sidebar():
     with st.sidebar:
         # Logo and title
         st.image("https://github.com/sribreva/Breva_VOC_Chat/raw/main/Breva.jpeg", width=200)
+
         st.title("Thrive Grant Insights")
         
         st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
