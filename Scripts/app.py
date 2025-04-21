@@ -786,7 +786,7 @@ def create_sidebar():
     """Create an enhanced sidebar with better styling and organization"""
     with st.sidebar:
         # Logo and title
-        st.image("https://via.placeholder.com/200x80?text=Breva", width=200)
+        st.image("https://github.com/sribreva/Breva_VOC_Chat/raw/main/Breva.jpeg", width=200)
         st.title("Thrive Grant Insights")
         
         st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
