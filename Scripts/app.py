@@ -9,7 +9,6 @@ from pinecone import Pinecone
 import time
 import json
 from datetime import datetime, timedelta
-import html
 
 # Set up logging
 logging.basicConfig(
@@ -733,6 +732,7 @@ def apply_custom_css():
     """, unsafe_allow_html=True)
 
 
+
 def custom_chat_message(role, content, timestamp=None):
     """Display a custom chat message with enhanced styling and optional timestamp"""
     current_time = timestamp or datetime.now().strftime("%I:%M %p")
@@ -873,25 +873,23 @@ def display_messages():
 
 
 def display_welcome_message():
-    """Display an enhanced welcome message using Streamlit's native components"""
-    with st.container():
-        st.markdown("""
-        <h3 style="color: var(--breva-primary-light);">👋 Welcome to the Breva Thrive Grant Insights tool!</h3>
-        """, unsafe_allow_html=True)
-        
-        st.write("I can help you analyze applications by providing data-driven insights on:")
-        
-        st.markdown("""
-        <ul>
-            <li><strong style="color: var(--breva-secondary);">Financial challenges</strong> faced by applicants</li>
-            <li><strong style="color: var(--breva-secondary);">Business goals</strong> and growth strategies</li>
-            <li><strong style="color: var(--breva-secondary);">Funding needs</strong> and intended use of grants</li>
-            <li><strong style="color: var(--breva-secondary);">Community impact</strong> of applicant businesses</li>
-            <li><strong style="color: var(--breva-secondary);">Equity and inclusion</strong> efforts by applicants</li>
-        </ul>
-        """, unsafe_allow_html=True)
-        
-        st.write("Ask me a question to get started with your data exploration!")
+    """Display an enhanced welcome message with formatting"""
+    welcome_message = """
+    <h3 style="color: var(--breva-primary-light);">👋 Welcome to the Breva Thrive Grant Insights tool!</h3>
+    
+    <p>I can help you analyze applications by providing data-driven insights on:</p>
+    
+    <ul>
+        <li><strong style="color: var(--breva-secondary);">Financial challenges</strong> faced by applicants</li>
+        <li><strong style="color: var(--breva-secondary);">Business goals</strong> and growth strategies</li>
+        <li><strong style="color: var(--breva-secondary);">Funding needs</strong> and intended use of grants</li>
+        <li><strong style="color: var(--breva-secondary);">Community impact</strong> of applicant businesses</li>
+        <li><strong style="color: var(--breva-secondary);">Equity and inclusion</strong> efforts by applicants</li>
+    </ul>
+    
+    <p>Ask me a question to get started with your data exploration!</p>
+    """
+    custom_chat_message("assistant", welcome_message)
 
 def create_status_area():
     """Create an enhanced status area with metrics and info"""
@@ -995,6 +993,26 @@ def process_user_message(user_input):
     }
     </style>
     """, unsafe_allow_html=True)
+    
+    # Generate assistant response
+    try:
+        # Simulate thinking time for better UX
+        time.sleep(0.5)
+        
+        answer = st.session_state.querier.generate_answer(user_input, st.session_state.messages[:-1])
+        add_assistant_message(answer)
+        
+        # Remove typing indicator and show the response
+        typing_placeholder.empty()
+        custom_chat_message("assistant", answer)
+    except Exception as e:
+        # Handle errors gracefully
+        error_msg = f"I apologize, but I encountered an error while processing your request: {str(e)}"
+        add_assistant_message(error_msg)
+        
+        # Remove typing indicator and show the error
+        typing_placeholder.empty()
+        custom_chat_message("assistant", error_msg)
 
 
 
