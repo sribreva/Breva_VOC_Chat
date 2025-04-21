@@ -33,7 +33,7 @@ class VOCDatabaseQuerier:
     def __init__(
         self,
         pinecone_api_key: str = "pcsk_5vnC9g_A8MYTbGufDu68CXWkiUCqPQY3bSLRULeJvSJEhxVNU8GHHfdMaYSjSAEKFETDAt",
-        index_name: str = "voc-index",
+        index_name: str = "voc-index-2025-q2",
         anthropic_api_key: str = None
         ):
         logging.info("Initializing VOC Database Querier (Offline Summaries)...")
@@ -277,7 +277,7 @@ class VOCDatabaseQuerier:
         try:
             # 4. Call Anthropic to generate the final answer
             response = self.anthropic.messages.create(
-                model="claude-3-5-sonnet-20241022",
+                model="claude-3-7-sonnet-20250219",
                 max_tokens=8192,
                 temperature=0.1,
                 messages=[{
@@ -362,7 +362,7 @@ def main():
                 
                 st.session_state.querier = VOCDatabaseQuerier(
                     pinecone_api_key=pinecone_api_key,
-                    index_name="voc-index",
+                    index_name="voc-index-2025-q2",
                     anthropic_api_key=anthropic_api_key  
                 )
         except Exception as e:
