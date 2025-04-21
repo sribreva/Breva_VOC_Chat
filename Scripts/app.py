@@ -878,12 +878,13 @@ def display_messages():
 
 
 def display_welcome_message():
-    """Display an enhanced welcome message with formatting"""
-    welcome_message = """
-    <h3 style="color: var(--breva-primary-light);">👋 Welcome to the Breva Thrive Grant Insights tool!</h3>
-    
-    <p>I can help you analyze applications by providing data-driven insights on:</p>
-    
+    """Assistant welcome banner (dedented so no stray code)."""
+    welcome_message = textwrap.dedent("""
+    <h3 style="color: var(--breva-primary-light);">
+        👋 Welcome to the Breva Thrive Grant Insights tool!
+    </h3>
+
+    <p>I can help you analyze applications by providing data‑driven insights on:</p>
     <ul>
         <li><strong style="color: var(--breva-secondary);">Financial challenges</strong> faced by applicants</li>
         <li><strong style="color: var(--breva-secondary);">Business goals</strong> and growth strategies</li>
@@ -891,10 +892,10 @@ def display_welcome_message():
         <li><strong style="color: var(--breva-secondary);">Community impact</strong> of applicant businesses</li>
         <li><strong style="color: var(--breva-secondary);">Equity and inclusion</strong> efforts by applicants</li>
     </ul>
-    
+
     <p>Ask me a question to get started with your data exploration!</p>
-    """
-    custom_chat_message("assistant", welcome_message)
+    """)
+    custom_chat_message("assistant", welcome_message, is_html=True)
 
 def create_status_area():
     """Create an enhanced status area with metrics and info"""
