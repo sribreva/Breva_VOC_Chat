@@ -141,13 +141,13 @@ class VOCDatabaseQuerier:
                 "keywords": ["advisor", "advice", "financial advisor", "questions", "ask"]
             },
 
-            # Financial assistance rationale (Added missing "keywords")
+            # Financial assistance rationale 
             "reason_financial_assistance": {
                 "context": "What is your main reason for seeking financial assistance for your business?",
                 "keywords": ["financial assistance", "reason for funding", "seeking help", "business assistance", "funding need"]
             },
 
-            # Planning responsibility (Added missing "keywords")
+            # Planning responsibility 
             "financial_planning_responsible": {
                 "context": "Who handles the financial planning and cash flow tracking at your business?",
                 "keywords": ["financial planning", "cash flow tracking", "responsibility", "financial oversight", "management"]
