@@ -9,6 +9,8 @@ from pinecone import Pinecone
 import time
 import json
 from datetime import datetime, timedelta
+import html
+import textwrap 
 
 # Set up logging
 logging.basicConfig(
@@ -731,29 +733,37 @@ def apply_custom_css():
     </style>
     """, unsafe_allow_html=True)
 
-def custom_chat_message(role, content, timestamp=None):
-    """Display a custom chat message with enhanced styling and optional timestamp"""
+def custom_chat_message(role: str,
+                        content: str,
+                        timestamp: str | None = None,
+                        is_html: bool = False):
+    """Render chat bubbles with optional raw HTML."""
     current_time = timestamp or datetime.now().strftime("%I:%M %p")
-    
+
+    # 🔒 Escape only when the payload is plain text
+    if is_html:
+        content = textwrap.dedent(content).strip()
+    else:
+        content = html.escape(content)
+
     if role == "user":
-        st.markdown(f"""
+        bubble = f"""
         <div class="message-container user-container">
             <div class="message-bubble user-bubble">
                 {content}
                 <div class="message-time">{current_time}</div>
             </div>
-        </div>
-        """, unsafe_allow_html=True)
+        </div>"""
     else:
-        # For assistant messages
-        st.markdown(f"""
+        bubble = f"""
         <div class="message-container assistant-container">
             <div class="message-bubble assistant-bubble">
                 {content}
                 <div class="message-time">{current_time}</div>
             </div>
-        </div>
-        """, unsafe_allow_html=True)
+        </div>"""
+
+    st.markdown(textwrap.dedent(bubble), unsafe_allow_html=True)
 
 def create_breva_card(title, content, icon=None):
     """Create a custom styled card component"""
