@@ -736,15 +736,16 @@ def apply_custom_css():
 
 def custom_chat_message(role, content, timestamp=None, is_html=False):
     """Display a custom chat message with enhanced styling and optional timestamp"""
+    # Format the timestamp or use current time
     current_time = timestamp or datetime.now().strftime("%I:%M %p")
     
     # Only escape HTML if the content is not already HTML
     if not is_html:
         content = html.escape(content)
     
+    # Create the message HTML based on role
     if role == "user":
-        # Note the proper nesting of div tags and placement of the timestamp
-        message_html = f"""
+        html_content = f"""
         <div class="message-container user-container">
             <div class="message-bubble user-bubble">
                 {content}
@@ -752,9 +753,8 @@ def custom_chat_message(role, content, timestamp=None, is_html=False):
             </div>
         </div>
         """
-    else:
-        # For assistant messages
-        message_html = f"""
+    else:  # assistant
+        html_content = f"""
         <div class="message-container assistant-container">
             <div class="message-bubble assistant-bubble">
                 {content}
@@ -762,6 +762,17 @@ def custom_chat_message(role, content, timestamp=None, is_html=False):
             </div>
         </div>
         """
+    
+    # Use a safer way to render markdown
+    try:
+        st.markdown(html_content, unsafe_allow_html=True)
+    except Exception as e:
+        # Fallback to a simpler rendering if there's an error
+        logging.error(f"Error rendering chat message: {e}")
+        if role == "user":
+            st.info(f"User: {html.unescape(content)}")
+        else:
+            st.info(f"Assistant: {html.unescape(content)}")
     
     # Render the message
     st.markdown(message_html, unsafe_allow_html=True)
