@@ -226,70 +226,70 @@ class VOCDatabaseQuerier:
             logging.error(f"Error fetching summary for {summary_qtype}: {e}")
             return ""
 
-    def build_prompt_with_offline_summary(self, user_query: str, summary: str, conversation_history: List[Dict[str, str]]) -> str:
-        """
-        Build a prompt with the user query, offline summary, and conversation history.
-        """
-        # Build conversation history string
-        conversation_history_text = ""
-        for msg in conversation_history:
-            if msg["role"] == "user":
-                conversation_history_text += f"User: {msg['content']}\n"
-            else:
-                conversation_history_text += f"Assistant: {msg['content']}\n"
-                    
-        prompt = f"""
-    You are an expert data analyst assistant for **Breva**, a financial technology company focused on supporting small and medium-sized businesses (SMBs). You're working with the Thrive Grant program team to analyze application data.
-
-    ### **CONTEXT AND PURPOSE**
-    - You are exclusively serving Breva employees who need to extract insights from Thrive Grant applications
-    - The Thrive Grant program provides financial assistance to SMBs facing various challenges
-    - Your analysis will help Breva improve their products, services, and grant program
-    - You're analyzing real responses from grant applicants about their business needs and challenges
-
-    ### **CONVERSATION HISTORY**
-    ---
-    {conversation_history_text}
-    ---
-
-    ### **CURRENT QUERY**
-    The user (a Breva employee) just asked: **"{user_query}"**
-
-    ### **RELEVANT VOC DATA**
-    Below is a summary of relevant Voice of Customer (VOC) data from our grant applications database:
-    ---
-    {summary}
-    ---
-
-    ### **RESPONSE REQUIREMENTS**
-
-    1. **Analytical Approach**
-    - Analyze patterns, trends, and outliers in the data
-    - Identify key segments and how they differ (by business size, industry, etc. if available)
-    - Provide quantitative breakdowns with percentages when possible
-    - Highlight surprising or counterintuitive findings
-
-    2. **Response Structure**
-    - Start with a "Key Findings" section (3-5 bullet points of most important insights)
-    - Use clear headings and subheadings to organize information
-    - Include a "Business Implications" section
-    - End with 1-2 suggested follow-up questions or areas for deeper investigation
-
-    3. **Data Presentation**
-    - Present statistics clearly (X% of respondents mentioned Y)
-    - Use comparative language (more likely to, less frequently than, etc.)
-    - Distinguish between facts from the data vs. your interpretations
-    - Support insights with specific examples or quotes from the data when relevant
-
-    4. **Tone and Focus**
-    - Be objective, analytical, and business-focused
-    - Avoid giving advice to SMBs directly
-    - Frame everything as insights FOR Breva employees ABOUT applicant needs
-    - Maintain a helpful, collaborative tone with the Breva team member
-
-    Now, craft a concise, structured, data-driven response that helps the Breva employee understand the patterns and implications in this VOC data.
+def build_prompt_with_offline_summary(self, user_query: str, summary: str, conversation_history: List[Dict[str, str]]) -> str:
     """
-        return prompt
+    Build a prompt with the user query, offline summary, and conversation history.
+    """
+    # Build conversation history string
+    conversation_history_text = ""
+    for msg in conversation_history:
+        if msg["role"] == "user":
+            conversation_history_text += f"User: {msg['content']}\n"
+        else:
+            conversation_history_text += f"Assistant: {msg['content']}\n"
+                
+    prompt = f"""
+You are an expert data analyst assistant for **Breva**, a financial technology company focused on supporting small and medium-sized businesses (SMBs). You're working with the Thrive Grant program team to analyze application data.
+
+### **CONTEXT AND PURPOSE**
+- You are exclusively serving Breva employees who need to extract insights from Thrive Grant applications
+- The Thrive Grant program provides financial assistance to SMBs facing various challenges
+- Your analysis will help Breva improve their products, services, and grant program
+- You're analyzing real responses from grant applicants about their business needs and challenges
+
+### **CONVERSATION HISTORY**
+---
+{conversation_history_text}
+---
+
+### **CURRENT QUERY**
+The user (a Breva employee) just asked: **"{user_query}"**
+
+### **RELEVANT VOC DATA**
+Below is a summary of relevant Voice of Customer (VOC) data from our grant applications database:
+---
+{summary}
+---
+
+### **RESPONSE REQUIREMENTS**
+
+1. **Analytical Approach**
+   - Analyze patterns, trends, and outliers in the data
+   - Identify key segments and how they differ (by business size, industry, etc. if available)
+   - Provide quantitative breakdowns with percentages when possible
+   - Highlight surprising or counterintuitive findings
+
+2. **Response Structure**
+   - Start with a "Key Findings" section (3-5 bullet points of most important insights)
+   - Use clear headings and subheadings to organize information
+   - Include a "Business Implications" section
+   - End with 1-2 suggested follow-up questions or areas for deeper investigation
+
+3. **Data Presentation**
+   - Present statistics clearly (X% of respondents mentioned Y)
+   - Use comparative language (more likely to, less frequently than, etc.)
+   - Distinguish between facts from the data vs. your interpretations
+   - Support insights with specific examples or quotes from the data when relevant
+
+4. **Tone and Focus**
+   - Be objective, analytical, and business-focused
+   - Avoid giving advice to SMBs directly
+   - Frame everything as insights FOR Breva employees ABOUT applicant needs
+   - Maintain a helpful, collaborative tone with the Breva team member
+
+Now, craft a concise, structured, data-driven response that helps the Breva employee understand the patterns and implications in this VOC data.
+"""
+    return prompt
 
     def generate_answer(self, user_query: str, conversation_history: List[Dict[str, str]]) -> str:
         """
