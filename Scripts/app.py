@@ -957,7 +957,10 @@ def process_user_message(user_input):
     # Add user message to chat history
     add_user_message(user_input)
     
-    # Show typing indicator
+    # Display user message immediately
+    custom_chat_message("user", user_input)  # This line ensures the user's input appears in the chat immediately
+    
+    # Show typing indicator while processing
     typing_placeholder = st.empty()
     typing_placeholder.markdown("""
     <div class="message-container assistant-container">
@@ -1004,6 +1007,7 @@ def process_user_message(user_input):
         # Remove typing indicator and show the error
         typing_placeholder.empty()
         custom_chat_message("assistant", error_msg)
+
 
 
 def add_user_message(user_input):
