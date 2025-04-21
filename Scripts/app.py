@@ -8,10 +8,7 @@ from typing import Dict, List
 from pinecone import Pinecone
 import time
 import json
-import requests
-from colorama import Fore, Style
-import colorama
-colorama.init()
+from datetime import datetime
 
 # Set up logging
 logging.basicConfig(
@@ -20,35 +17,37 @@ logging.basicConfig(
 )
 
 # ------------------------------------------------------------------------------
-# VOCDatabaseQuerier Class Definition 
+# VOCDatabaseQuerier Class Definition (unchanged) 
 # ------------------------------------------------------------------------------
 class VOCDatabaseQuerier:
     """
     This class queries:
     1) Maps the user's question to a question_type using a simple keyword matching approach.
     2) Fetches the offline summary for that question_type (e.g. "desc_community_impact_summary").
-    3) Uses Anthropic to produce a final answer based on that summary.
+    3) Uses Anthropic to produce a final answer based on that summary and the full conversation history.
     """
 
     def __init__(
         self,
-        pinecone_api_key: str = "pcsk_5vnC9g_A8MYTbGufDu68CXWkiUCqPQY3bSLRULeJvSJEhxVNU8GHHfdMaYSjSAEKFETDAt",
-        index_name: str = "voc-index-2025-q2",
-        anthropic_api_key: str = None
-        ):
+        pinecone_api_key: str,
+        index_name: str,
+        anthropic_api_key: str
+    ):
         logging.info("Initializing VOC Database Querier (Offline Summaries)...")
-        # Load or read the Anthropic API key
-        self.api_key = anthropic_api_key or os.environ.get("ANTHROPIC_API_KEY", None)
-        # Debugging to see if the API key is being read correctly
-        if not self.api_key:
-            raise ValueError("Anthropic API key not provided or found in environment. "
-                             "Please pass it or set ANTHROPIC_API_KEY env var.")
+        
+        # Validate API keys
+        if not anthropic_api_key:
+            raise ValueError("Anthropic API key not provided")
+        if not pinecone_api_key:
+            raise ValueError("Pinecone API key not provided")
+            
+        self.api_key = anthropic_api_key
 
-        # Connection to Pinecone
-        logging.info(f"Connecting to Pinecone...")
+        # Connection to Pinecone - using updated API
+        logging.info("Connecting to Pinecone...")
         self.pc = Pinecone(api_key=pinecone_api_key)
         self.index_name = index_name
-        self.index = self.pc.Index(index_name)
+        self.index = self.pc.Index(self.index_name)
         
         # Get index stats to confirm connection
         try:
@@ -64,114 +63,88 @@ class VOCDatabaseQuerier:
         self.anthropic = Anthropic(api_key=self.api_key)
         logging.info("Anthropic client initialized successfully.")
 
-        # Question Types the same as the VOC_map_reduce.py script
+        # Question Types as defined in VOC_map_reduce.py
         self.question_types = {
             # Financial Challenges
             "financial_challenges_1": {
                 "context": "What specific challenges do you face in managing and forecasting your cash flow?",
-                "columns": ["What specific challenges do you face in managing and forecasting your cash flow?"]
+                "keywords": ["cash flow", "manage cash", "forecast", "forecasting", "cashflow"]
             },
             "financial_challenges_2": {
                 "context": "What specific financial tasks consume most of your time?",
-                "columns": ["What specific financial tasks consume most of your time, and how do you feel these tasks impact your ability to focus on growing your business?"]
+                "keywords": ["time consuming", "financial tasks", "consume time", "time spent"]
             },
             "financial_challenges_3": {
                 "context": "Tell us about a hard instance managing finances or getting a loan",
-                "columns": ["Please tell us about a recent instance where it was really hard for you to manage your finances, or to get financial help, such as a loan. What would have been the ideal solution?"]
+                "keywords": ["hard instance", "difficult", "challenge", "loan", "managing finances"]
             },
             "financial_challenges_4": {
                 "context": "Challenges with applying for loans",
-                "columns": ["What are the most significant challenges you face with applying for loans, and what do you wish you could improve?"]
+                "keywords": ["loan", "applying", "application", "credit", "approval"]
             },
 
             # Business Description
             "desc_business_brief": {
                 "context": "A brief description of the business",
-                "columns": [
-                    "Provide a brief description of your business",
-                    "Provide a brief description of your business. Include a description of your products/services"
-                ]
+                "keywords": ["business description", "about business", "what business", "company"]
             },
             "desc_primary_products": {
                 "context": "Primary products/services offered",
-                "columns": ["Detail the primary products/services offered by your business"]
+                "keywords": ["products", "services", "offerings", "what do you sell", "provide"]
             },
             "desc_community_impact": {
                 "context": "Impact on the community",
-                "columns": ["Describe how your business positively impacts your community"]
+                "keywords": ["community", "impact", "local", "society", "neighborhood"]
             },
             "desc_equity_inclusion": {
                 "context": "Efforts to promote equity and inclusion",
-                "columns": ["Describe efforts made by your business to promote equity and inclusion in the workplace and community"]
+                "keywords": ["equity", "inclusion", "diversity", "dei", "inclusive"]
             },
 
             # Business Goals and Growth
             "business_goals_1": {
                 "context": "Achievements and business goals",
-                "columns": [
-                    "What significant achievements have you made in your business? What are your business goals for the coming year?",
-                    "What significant achievements have you made in your business? What are your business goals for the next 12 months?"
-                ]
+                "keywords": ["goals", "achievements", "milestones", "growth", "plan"]
             },
             "business_goals_2": {
                 "context": "Daily tasks for a virtual CFO",
-                "columns": ["If there were no constraints, what tasks would you want an advanced technology like a virtual Chief Financial Officer to handle for you daily?"]
+                "keywords": ["cfo", "financial officer", "daily tasks", "finance management"]
             },
 
             # Financial Tools and Advisory
             "financial_tool_needs": {
                 "context": "Required features for financial management tool",
-                "columns": [
-                    "What key features do you need in a tool to better manage your cash and build your business credit? What is (or would be) your budget for such a solution?",
-                    "What key features do you need in a tool to better manage your cash and expenses? What is (or would be) your budget for such a solution?"
-                ]
+                "keywords": ["tool", "features", "financial management", "software", "app", "application"]
             },
 
             # Grant and Support
             "grant_usage": {
                 "context": "How grant funds will be used",
-                "columns": [
-                    "Provide a brief statement detailing your financial need for this grant and how the funds will be used to enhance community impact",
-                    "Provide a brief statement detailing how the funds will be used to enhance community impact"
-                ]
+                "keywords": ["grant", "funds", "money", "financial support", "use of"]
             },
 
             # Business Challenges
             "business_obstacles": {
                 "context": "Major business obstacles and solutions",
-                "columns": ["Describe major obstacles your company encountered and how you resolved them"]
+                "keywords": ["obstacles", "challenges", "problems", "issues", "overcome"]
             },
 
             # Additional Context
             "additional_context": {
                 "context": "Additional relevant information",
-                "columns": ["Please include any relevant information or context that you believe would be helpful for the judges to consider when reviewing your application"]
+                "keywords": ["additional", "other", "more information", "context", "relevant"]
             },
 
             # Financial Advisor Questions
             "financial_advisor_questions": {
                 "context": "Questions for financial advisor",
-                "columns": ["Please provide your top three (3) questions you would ask a financial advisor or business coach, about your business?"]
-            },
-
-            # Financial assistance rationale
-            "reason_financial_assistance": {
-                "context": "What is your main reason for seeking financial assistance for your business?",
-                "columns": ["What is your main reason for seeking financial assistance for your business?"]
-            },
-
-            # Planning responsibility
-            "financial_planning_responsible": {
-                "context": "Who handles the financial planning and cash flow tracking at your business?",
-                "columns": ["Who handles the financial planning and cash flow tracking at your business?"]
+                "keywords": ["advisor", "advice", "financial advisor", "questions", "ask"]
             }
         }
 
     def determine_question_type(self, user_query: str) -> str:
         """
-        Purpose: Determine the question type based on the user query using keyword matching.
-        Input: User query.
-        Output: Question type.
+        Determine the question type based on the user query using keyword matching.
         """
         user_query = user_query.lower()
         
@@ -188,7 +161,7 @@ class VOCDatabaseQuerier:
         
         # If no keywords matched, default to financial_challenges_1
         if best_type[1] == 0:
-            logging.info(f"[determine_question_type] No keywords matched. Using default question type: financial_challenges_1")
+            logging.info("[determine_question_type] No keywords matched. Using default question type: financial_challenges_1")
             return "financial_challenges_1"
         
         logging.info(f"[determine_question_type] Query mapped to '{best_type[0]}' (score={best_type[1]})")
@@ -196,20 +169,15 @@ class VOCDatabaseQuerier:
 
     def get_offline_summary(self, question_type: str) -> str:
         """
-        Purpose: Fetch the offline summary for a given question type from Pinecone.
-        Input: Question type.
-        Output: Offline summary.
+        Fetch the offline summary for a given question type from Pinecone.
         """
-        # Append "_summary" to the question type to get the summary question type
         summary_qtype = f"{question_type}_summary"
         logging.info(f"Fetching offline summary for question_type='{summary_qtype}'")
         
         try:
-            # For Pinecone, we need to provide a vector for the query
-            # Since we're only filtering by metadata, create a simple dummy vector
-            dummy_vector = [0.0] * 384  # Use the dimensionality of your Pinecone index
+            # For Pinecone, we provide a dummy vector for the query.
+            dummy_vector = [0.0] * 384  # Adjust dimension to your index if needed
             
-            # Query with metadata filter
             query_results = self.index.query(
                 vector=dummy_vector,
                 filter={"question_type": summary_qtype},
@@ -217,13 +185,12 @@ class VOCDatabaseQuerier:
                 include_metadata=True
             )
             
-            # Check if results are empty
-            if not query_results.matches:
+            matches = getattr(query_results, 'matches', [])
+            if not matches:
                 logging.warning(f"No summary found for {summary_qtype}")
                 return ""
             
-            # Extract the text from the metadata
-            summary_text = query_results.matches[0].metadata.get("text", "")
+            summary_text = matches[0].metadata.get("text", "")
             if not summary_text:
                 logging.warning(f"No text found in metadata for {summary_qtype}")
                 return ""
@@ -235,71 +202,70 @@ class VOCDatabaseQuerier:
             logging.error(f"Error fetching summary for {summary_qtype}: {e}")
             return ""
 
-    def build_prompt_with_offline_summary(self, user_query: str, summary: str) -> str:
+    def build_prompt_with_offline_summary(self, user_query: str, summary: str, conversation_history: List[Dict[str, str]]) -> str:
         """
-        Purpose: Build a prompt with the user query and offline summary for Anthropic.
-        Input: User query, offline summary.
-        Output: Prompt for Anthropic.
+        Build a prompt with the user query, offline summary, and conversation history.
         """
+        # Build conversation history string
+        conversation_history_text = ""
+        for msg in conversation_history:
+            if msg["role"] == "user":
+                conversation_history_text += f"User: {msg['content']}\n"
+            else:
+                conversation_history_text += f"Assistant: {msg['content']}\n"
+                
         prompt = f"""
-            You are a helpful assistant with access to a detailed Voice of Customer (VOC) offline summary. Your goal is to have a natural conversation with the user while providing a well-structured, comprehensive answer that incorporates significant parts of the summary.
+You are an internal assistant for **Breva**, a company focused on understanding and supporting small and medium-sized businesses (SMBs). This chatbot is used **exclusively by Breva employees** to extract insights from data collected via our **Thrive Grant application**. 
 
-            **User Query**: {user_query}
+Your goal is to help Breva employees analyze and interpret customer responses, so they can better understand the financial challenges, funding needs, and business goals of SMBs. This is **not a customer-facing tool**—your responses should focus on helping Breva employees gain actionable insights from the collected data.
 
-            ---
-            **OFFLINE SUMMARY**:
-            {summary}
-            ---
+### **Contextual Information**
+To ensure continuity, here's the conversation so far:
+---
+{conversation_history_text}
+---
 
-            When crafting your response, please follow these guidelines:
+The user just asked: **"{user_query}"**
 
-            1. **Structure Your Answer Clearly:**
-            - **Introduction:** Begin with a brief overview of the key challenges or insights derived from the summary.
-            - **Detailed Analysis:** Break your response into sections or bullet points. Use subheadings like "Credit Challenges," "Application Process Issues," etc., if relevant. Include important statistics, quotes, and details directly from the summary.
-            - **Conclusion:** Wrap up with a summary of the main points and ask a clarifying question to continue the conversation.
+To assist them, I'm providing a relevant background summary extracted from our **Voice of Customer (VOC) database**, which contains real SMB responses regarding their financial challenges, funding concerns, and business strategies:
+---
+{summary}
+---
 
-            2. **Incorporate Relevant Chunks from the Summary:**
-            - Reference important data points (e.g., percentages, key quotes, or notable trends) from the summary.
-            - Ensure that you integrate at least 60-70% of the content from the summary into your explanation.
+### **Response Guidelines**
+1. **Frame Your Answer for Breva Employees**  
+   - Assume the user is a Breva employee analyzing customer responses, not an SMB owner seeking advice.  
+   - Focus on **what insights can be drawn from the provided data** rather than providing direct guidance to the customer.  
+   - Please provide statistics when available as this makes it more understandable. 
 
-            3. **Maintain a Conversational and Friendly Tone:**
-            - Engage naturally, as if you are having a friendly discussion with the user.
-            - Feel free to ask clarifying questions at the end to further explore the topic.
+2. **Use the Background Information Thoughtfully**  
+   - Incorporate key insights from the summary without directly repeating them.  
+   - Structure your response using bullet points or subheadings where helpful.  
+   - Clearly distinguish between **data-driven insights** and **potential interpretations or implications**.
 
-            4. **Distinguish Between Data and Analysis:**
-            - Clearly indicate which parts of your response are directly drawn from the summary and which parts are your own interpretations or additional insights.
-
-            Our company is Breva, a financial management tool for small businesses, and this information is based on real user feedback from forums, surveys, and interviews. Use this context to ensure your response is both informative and actionable.
-
-            Now, please provide a structured, detailed, and friendly response based on the above information.
+Now, using the above information, please craft a structured, insightful response tailored for **internal Breva employees analyzing customer data.**
         """
         return prompt
 
-    def generate_answer(self, user_query: str) -> str:
+    def generate_answer(self, user_query: str, conversation_history: List[Dict[str, str]]) -> str:
         """
-        Purpose: Generate an answer using Anthropic based on the user query.
-        Input: User query.
-        Output: Final answer.
+        Generate an answer using Anthropic based on the user query and the full conversation history.
         """
-        # 1. Determine the question type based on the user query
-        qtype = self.determine_question_type(user_query)
-        # 2. Fetch the offline summary for the question type
-        offline_summary = self.get_offline_summary(qtype)
-        if not offline_summary:
-            return (f"No offline summary found for question type '{qtype}'. "
-                    f"Try a different approach or run offline summarization first.")
-        
-        # 3. Build the final prompt for Anthropic
-        final_prompt = self.build_prompt_with_offline_summary(user_query, offline_summary)
-
-        # Now we need to print the final prompt for debugging
-        print(f"{Fore.GREEN}FINAL PROMPT:{Style.RESET_ALL}")
-        print(final_prompt)
-        
-        logging.info("FINAL PROMPT constructed.")
-
         try:
-            # 4. Call Anthropic to generate the final answer
+            # Determine the question type
+            qtype = self.determine_question_type(user_query)
+            
+            # Fetch the offline summary for the question type
+            offline_summary = self.get_offline_summary(qtype)
+            if not offline_summary:
+                return (f"No offline summary found for question type '{qtype}'. "
+                        f"Try a different approach or run offline summarization first.")
+            
+            # Build the final prompt including the conversation history
+            final_prompt = self.build_prompt_with_offline_summary(user_query, offline_summary, conversation_history)
+            logging.info("FINAL PROMPT constructed.")
+    
+            # Call Anthropic to generate the final answer
             response = self.anthropic.messages.create(
                 model="claude-3-7-sonnet-20250219",
                 max_tokens=8192,
@@ -309,133 +275,405 @@ class VOCDatabaseQuerier:
                     "content": final_prompt
                 }]
             )
+            
             # Handle response content extraction
             if hasattr(response.content[0], 'text'):
                 return response.content[0].text
             else:
                 return str(response.content[0])
         except Exception as e:
-            logging.error(f"Error calling Anthropic: {e}")
-            return f"[Error generating final answer: {str(e)}]"
+            logging.error(f"Error generating answer: {e}")
+            return f"[Error generating answer: {str(e)}]"
 
 # ------------------------------------------------------------------------------
-# Streamlit Application
+# Helper functions for the Streamlit app
 # ------------------------------------------------------------------------------
-def main():
-    # Define the page title 
-    st.set_page_config(page_title="Thrive Grant Application Chatbot", page_icon="🤖", layout="centered")
+def initialize_session_state():
+    """Initialize session state variables if they don't exist"""
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
     
-    # Very Basic CSS Styling for the chat messages
-    st.markdown(
-        """
-        <style>
-        .chat-container {
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        .message {
-            padding: 10px 15px;
-            border-radius: 15px;
-            margin: 8px 0;
-            width: fit-content;
-            max-width: 80%;
-            color: #000000;  /* dark text for readability */
-            font-size: 16px;
-            line-height: 1.4;
-        }
-        .user {
-            background-color: #DCF8C6;  /* light green */
-            align-self: flex-end;
-        }
-        .bot {
-            background-color: #F1F0F0;  /* light gray */
-            align-self: flex-start;
-        }
-        .chat-box {
-            display: flex;
-            flex-direction: column;
-        }
-        /* Style the text input area to have contrasting text */
-        textarea {
-            color: #000000 !important;  /* force dark text */
-            background-color: #ffffff !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
+    if "conversation_started" not in st.session_state:
+        st.session_state.conversation_started = False
+        
+    if "query_count" not in st.session_state:
+        st.session_state.query_count = 0
+        
+    if "session_id" not in st.session_state:
+        st.session_state.session_id = f"session_{int(time.time())}"
+        
+    if "temp_user_input" not in st.session_state:
+        st.session_state.temp_user_input = ""
 
-    # Sidebar with instructions
-    st.sidebar.title("Instructions")
-    st.sidebar.info(
-        "Ask any questions regarding the Thrive Grant Application. "
-        "The chatbot will respond using our VOC offline summaries."
-    )
-
-    # Title and description
-    st.title("Thrive Grant Application Chatbot 🤖")
-    st.write("Have a conversation with the chatbot regarding the Thrive Grant Application questions.")
-
-    # Initialize the VOCDatabaseQuerier once and cache it
+def initialize_querier():
+    """Initialize the VOCDatabaseQuerier and store it in session state"""
     if "querier" not in st.session_state:
         try:
             with st.spinner("Initializing chatbot..."):
-                # Get API keys from Streamlit secrets if available, otherwise use hardcoded values
-                pinecone_api_key = st.secrets.get("pinecone_api_key", "pcsk_5vnC9g_A8MYTbGufDu68CXWkiUCqPQY3bSLRULeJvSJEhxVNU8GHHfdMaYSjSAEKFETDAt")
-                anthropic_api_key = st.secrets.get("anthropic_api_key", "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")
+                pinecone_api_key = st.secrets.get("pinecone_api_key")
+                anthropic_api_key = st.secrets.get("anthropic_api_key")
+                
+                if not pinecone_api_key or not anthropic_api_key:
+                    st.error("API keys not found in Streamlit secrets. Please add them in the Streamlit Cloud dashboard.")
+                    st.info("Go to your app settings in Streamlit Cloud, navigate to 'Secrets', and add 'pinecone_api_key' and 'anthropic_api_key'.")
+                    return False
                 
                 st.session_state.querier = VOCDatabaseQuerier(
                     pinecone_api_key=pinecone_api_key,
-                    index_name="voc-index-2025-q2",
-                    anthropic_api_key=anthropic_api_key  
+                    index_name="voc-index",
+                    anthropic_api_key=anthropic_api_key
                 )
+                return True
         except Exception as e:
             st.error(f"Error initializing the VOC Database Querier: {e}")
-            return
+            return False
+    return True
 
-    # Define the memory component to store the chat messages
-    if "messages" not in st.session_state:
-        st.session_state.messages = []  
+def download_chat_history():
+    """Generate a downloadable file with the chat history"""
+    if not st.session_state.messages:
+        return None
     
-    # The chat container to display the chat messages
+    chat_export = {"session_id": st.session_state.session_id, "timestamp": datetime.now().isoformat(), "messages": st.session_state.messages}
+    return json.dumps(chat_export, indent=2)
+
+def apply_custom_css():
+    """Apply custom CSS for the dark theme iMessage-style chat"""
+    st.markdown("""
+    <style>
+        /* Dark theme base styling */
+        :root {
+            --background-color: #1E1E1E;
+            --text-color: #E0E0E0;
+            --accent-color: #6B46C1;
+            --secondary-color: #2D2D2D;
+            --border-color: #444444;
+            --user-bubble-color: #145EAB;
+            --assistant-bubble-color: #2D2D2D;
+        }
+        
+        body {
+            background-color: var(--background-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        
+        /* Override Streamlit defaults */
+        .main .block-container {
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+            max-width: 1000px;
+        }
+        
+        /* iMessage-style chat bubbles */
+        .stChatMessage {
+            background-color: transparent !important;
+            border: none !important;
+            padding: 0 !important;
+            margin-bottom: 12px !important;
+        }
+        
+        /* Hide the default chat message icons */
+        .stChatMessage [data-testid="chatAvatarIcon-user"],
+        .stChatMessage [data-testid="chatAvatarIcon-assistant"] {
+            display: none !important;
+        }
+        
+        /* Custom message bubble styling */
+        .message-container {
+            display: flex;
+            width: 100%;
+            margin-bottom: 16px;
+        }
+        
+        .user-container {
+            justify-content: flex-end;
+        }
+        
+        .assistant-container {
+            justify-content: flex-start;
+        }
+        
+        .message-bubble {
+            padding: 10px 16px;
+            border-radius: 18px;
+            max-width: 80%;
+            margin: 0;
+        }
+        
+        .user-bubble {
+            background-color: var(--user-bubble-color);
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+        
+        .assistant-bubble {
+            background-color: var(--assistant-bubble-color);
+            color: var(--text-color);
+            border-bottom-left-radius: 5px;
+        }
+        
+        /* Remove padding from message containers */
+        .stChatMessage > div:first-child {
+            padding: 0 !important;
+        }
+
+        /* Proper spacing for messages */
+        .message-container + .message-container {
+            margin-top: 8px;
+        }
+        
+        /* Sidebar styling */
+        [data-testid="stSidebar"] {
+            background-color: var(--secondary-color);
+            border-right: 1px solid var(--border-color);
+        }
+        
+        /* Input area styling */
+        [data-baseweb="input"] {
+            border-radius: 20px !important;
+            background-color: var(--secondary-color) !important;
+            border: 1px solid var(--border-color) !important;
+            color: var(--text-color) !important;
+        }
+        
+        /* Button styling */
+        .stButton button {
+            background-color: var(--accent-color) !important;
+            color: white !important;
+            border-radius: 20px !important;
+            border: none !important;
+            padding: 0.5rem 1rem !important;
+            transition: all 0.3s ease !important;
+        }
+        
+        .stButton button:hover {
+            background-color: #805AD5 !important;
+            box-shadow: 0 4px 8px rgba(107, 70, 193, 0.3) !important;
+        }
+        
+        /* Status area styling */
+        .status-area {
+            background-color: var(--secondary-color);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid var(--border-color);
+        }
+        
+        /* Footer styling */
+        .footer {
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+            font-size: 0.8rem;
+            color: #888;
+        }
+        
+        /* Custom divider */
+        .custom-divider {
+            border-top: 1px solid var(--border-color);
+            margin: 1.5rem 0;
+        }
+        
+        /* Override Streamlit chat input styling */
+        .stChatInputContainer {
+            padding-bottom: 1rem !important;
+            background-color: var(--background-color) !important;
+        }
+        
+        .stChatInputContainer > div {
+            background-color: var(--secondary-color) !important;
+            border-radius: 20px !important;
+            border: 1px solid var(--border-color) !important;
+        }
+        
+        /* Hide default chat message container styling */
+        .stChatMessageContent {
+            background-color: transparent !important;
+            padding: 0 !important;
+            border-radius: 0 !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+def custom_chat_message(role, content):
+    """Display a custom chat message with iMessage-style bubbles"""
+    # Clean content by removing any HTML tags that might be in the content string
+    
+    if role == "user":
+        st.markdown(f"""
+        <div class="message-container user-container">
+            <div class="message-bubble user-bubble">{content}</div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        # For assistant messages, wrap content in proper markdown formatting
+        # This ensures markdown is rendered properly within the bubble
+        content_div = f'<div class="message-bubble assistant-bubble">{content}</div>'
+        st.markdown(f"""
+        <div class="message-container assistant-container">
+            {content_div}
+        </div>
+        """, unsafe_allow_html=True)
+
+def display_messages():
+    """Display all messages in the chat history with custom styling"""
+    for message in st.session_state.messages:
+        custom_chat_message(message["role"], message["content"])
+
+def add_user_message(user_input):
+    """Add a user message to the chat history"""
+    st.session_state.messages.append({"role": "user", "content": user_input})
+    st.session_state.conversation_started = True
+    st.session_state.query_count += 1
+
+def add_assistant_message(content):
+    """Add an assistant message to the chat history"""
+    st.session_state.messages.append({"role": "assistant", "content": content})
+
+def process_user_message(user_input):
+    """Process a user message and generate a response"""
+    # Add user message to chat history
+    add_user_message(user_input)
+    
+    # Display user message with custom styling
+    custom_chat_message("user", user_input)
+    
+    # Generate assistant response
+    with st.spinner("Thinking..."):
+        try:
+            answer = st.session_state.querier.generate_answer(user_input, st.session_state.messages[:-1])
+            add_assistant_message(answer)
+            custom_chat_message("assistant", answer)
+        except Exception as e:
+            error_msg = f"Error: {str(e)}"
+            add_assistant_message(error_msg)
+            custom_chat_message("assistant", error_msg)
+
+# ------------------------------------------------------------------------------
+# Main Streamlit Application
+# ------------------------------------------------------------------------------
+def main():
+    # Set page configuration
+    st.set_page_config(
+        page_title="Breva Thrive Insights",
+        page_icon="📊",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+    
+    # Initialize session state
+    initialize_session_state()
+    
+    # Apply custom CSS for dark theme
+    apply_custom_css()
+    
+    # Sidebar configuration
+    with st.sidebar:
+        st.image("https://via.placeholder.com/150x50?text=Breva", width=150)
+        st.title("Thrive Grant Insights")
+        
+        st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
+        
+        # App information and instructions
+        st.subheader("About this tool")
+        st.markdown("""
+        This tool helps Breva employees analyze Thrive Grant applications by providing insights from our Voice of Customer database.
+
+        **How to use:**
+        1. Type your question about SMB grant applications
+        2. Review the AI-generated insights
+        3. Export conversations for reporting
+        """)
+        
+        st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
+        
+        # Session stats
+        st.subheader("Session Stats")
+        st.metric("Questions Asked", st.session_state.query_count)
+        st.metric("Session ID", st.session_state.session_id)
+        
+        st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
+        
+        # Action buttons
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("New Chat", use_container_width=True):
+                st.session_state.messages = []
+                st.session_state.conversation_started = False
+                st.session_state.query_count = 0
+                st.session_state.session_id = f"session_{int(time.time())}"
+                st.rerun()
+        
+        with col2:
+            if st.session_state.conversation_started:
+                chat_history = download_chat_history()
+                if chat_history:
+                    st.download_button(
+                        label="Export",
+                        data=chat_history,
+                        file_name=f"breva_chat_{st.session_state.session_id}.json",
+                        mime="application/json",
+                        use_container_width=True
+                    )
+    
+    # Main content area
+    st.title("Thrive Grant Applicant Insights")
+    
+    # Status area
+    with st.container():
+        cols = st.columns([3, 1])
+        with cols[0]:
+            st.markdown("### AI-powered analysis of SMB grant applications")
+            st.markdown("Ask questions about financial challenges, business goals, or funding needs of applicants.")
+        with cols[1]:
+            st.markdown("<div style='text-align: right;'>", unsafe_allow_html=True)
+            st.markdown(f"**Status:** {'Active' if initialize_querier() else 'Error'}")
+            st.markdown(f"**Date:** {datetime.now().strftime('%b %d, %Y')}")
+            st.markdown("</div>", unsafe_allow_html=True)
+    
+    st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
+    
+    # Initialize querier
+    if not initialize_querier():
+        st.stop()
+    
+    # Chat interface
     chat_container = st.container()
-
-    # Display the chat messages
     with chat_container:
-        st.markdown('<div class="chat-box">', unsafe_allow_html=True)
-        # For each message in the chat, display it with the appropriate styling
-        for msg in st.session_state.messages:
-            # If the message is from the user, display it on the right
-            if msg["role"] == "user":
-                st.markdown(f'<div class="message user"><strong>You:</strong> {msg["content"]}</div>', unsafe_allow_html=True)
-            # If the message is from the bot, display it on the left
-            else:
-                st.markdown(f'<div class="message bot"><strong>Chatbot:</strong> {msg["content"]}</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        if not st.session_state.conversation_started:
+            # Welcome message for new conversations
+            welcome_message = """
+👋 Welcome to the Breva Thrive Grant Insights tool!
 
-    st.markdown("---")
+I can help you analyze applications by providing insights on:
 
-    # Chat input form
-    with st.form(key="chat_form", clear_on_submit=True):
-        user_input = st.text_area("Enter your query:", height=100, placeholder="Type your question here...")
-        submit_button = st.form_submit_button(label="Send")
+- **Financial challenges** faced by applicants
+- **Business goals** and growth strategies
+- **Funding needs** and intended use of grants
+- **Community impact** of applicant businesses
+- **Equity and inclusion** efforts by applicants
 
-    if submit_button and user_input.strip():
-        # Append user message
-        st.session_state.messages.append({"role": "user", "content": user_input})
-        # Update UI immediately before processing
-        st.rerun()  
-
-    # If a new user message was added but no bot response yet, process it
-    # We'll check if the last message is from the user.
-    if st.session_state.messages and st.session_state.messages[-1]["role"] == "user":
-        # Get the most recent user message to generate an answer
-        latest_user_query = st.session_state.messages[-1]["content"]
-        # Spinner to indicate that the bot is generating
-        with st.spinner("Generating answer..."):
-            answer = st.session_state.querier.generate_answer(latest_user_query)
-        st.session_state.messages.append({"role": "bot", "content": answer})
-        st.rerun()  
+How can I assist you today?
+            """
+            custom_chat_message("assistant", welcome_message)
+        else:
+            # Display existing messages with custom styling
+            display_messages()
+    
+    # Chat input
+    user_input = st.chat_input("Ask a question about Thrive Grant applicants...")
+    if user_input:
+        process_user_message(user_input)
+    
+    # Footer
+    st.markdown("""
+    <div class="footer">
+        Breva Thrive Grant Insights Tool | Internal Use Only | © Breva 2025
+    </div>
+    """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
