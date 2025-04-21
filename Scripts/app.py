@@ -9,6 +9,7 @@ from pinecone import Pinecone
 import time
 import json
 from datetime import datetime, timedelta
+import html
 
 # Set up logging
 logging.basicConfig(
@@ -731,9 +732,13 @@ def apply_custom_css():
     </style>
     """, unsafe_allow_html=True)
 
+
 def custom_chat_message(role, content, timestamp=None):
     """Display a custom chat message with enhanced styling and optional timestamp"""
     current_time = timestamp or datetime.now().strftime("%I:%M %p")
+    
+    # Escape HTML to prevent rendering errors
+    content = html.escape(content)
     
     if role == "user":
         st.markdown(f"""
@@ -754,6 +759,7 @@ def custom_chat_message(role, content, timestamp=None):
             </div>
         </div>
         """, unsafe_allow_html=True)
+
 
 def create_breva_card(title, content, icon=None):
     """Create a custom styled card component"""
@@ -867,23 +873,25 @@ def display_messages():
 
 
 def display_welcome_message():
-    """Display an enhanced welcome message with formatting"""
-    welcome_message = """
-    <h3 style="color: var(--breva-primary-light);">👋 Welcome to the Breva Thrive Grant Insights tool!</h3>
-    
-    <p>I can help you analyze applications by providing data-driven insights on:</p>
-    
-    <ul>
-        <li><strong style="color: var(--breva-secondary);">Financial challenges</strong> faced by applicants</li>
-        <li><strong style="color: var(--breva-secondary);">Business goals</strong> and growth strategies</li>
-        <li><strong style="color: var(--breva-secondary);">Funding needs</strong> and intended use of grants</li>
-        <li><strong style="color: var(--breva-secondary);">Community impact</strong> of applicant businesses</li>
-        <li><strong style="color: var(--breva-secondary);">Equity and inclusion</strong> efforts by applicants</li>
-    </ul>
-    
-    <p>Ask me a question to get started with your data exploration!</p>
-    """
-    custom_chat_message("assistant", welcome_message)
+    """Display an enhanced welcome message using Streamlit's native components"""
+    with st.container():
+        st.markdown("""
+        <h3 style="color: var(--breva-primary-light);">👋 Welcome to the Breva Thrive Grant Insights tool!</h3>
+        """, unsafe_allow_html=True)
+        
+        st.write("I can help you analyze applications by providing data-driven insights on:")
+        
+        st.markdown("""
+        <ul>
+            <li><strong style="color: var(--breva-secondary);">Financial challenges</strong> faced by applicants</li>
+            <li><strong style="color: var(--breva-secondary);">Business goals</strong> and growth strategies</li>
+            <li><strong style="color: var(--breva-secondary);">Funding needs</strong> and intended use of grants</li>
+            <li><strong style="color: var(--breva-secondary);">Community impact</strong> of applicant businesses</li>
+            <li><strong style="color: var(--breva-secondary);">Equity and inclusion</strong> efforts by applicants</li>
+        </ul>
+        """, unsafe_allow_html=True)
+        
+        st.write("Ask me a question to get started with your data exploration!")
 
 def create_status_area():
     """Create an enhanced status area with metrics and info"""
