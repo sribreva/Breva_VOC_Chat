@@ -567,9 +567,9 @@ def main():
     # Initialize session state
     initialize_session_state()
     
-    # Apply custom CSS for dark theme
+    # Apply custom CSS for the UI
     apply_custom_css()
-    
+
     # Sidebar configuration
     with st.sidebar:
         st.image("https://via.placeholder.com/150x50?text=Breva", width=150)
@@ -618,7 +618,7 @@ def main():
                         mime="application/json",
                         use_container_width=True
                     )
-    
+
     # Main content area
     st.title("Thrive Grant Applicant Insights")
     
