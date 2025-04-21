@@ -352,7 +352,7 @@ def initialize_querier():
                 
                 st.session_state.querier = VOCDatabaseQuerier(
                     pinecone_api_key=pinecone_api_key,
-                    index_name="voc-index",
+                    index_name="voc-index-2025-q2",
                     anthropic_api_key=anthropic_api_key
                 )
                 return True
