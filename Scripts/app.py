@@ -8,7 +8,7 @@ from typing import Dict, List
 from pinecone import Pinecone
 import time
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Set up logging
 logging.basicConfig(
@@ -370,190 +370,641 @@ def download_chat_history():
     return json.dumps(chat_export, indent=2)
 
 def apply_custom_css():
-    """Apply custom CSS for the dark theme iMessage-style chat"""
+    """Apply custom CSS for the professional Breva theme"""
     st.markdown("""
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    
     <style>
-        /* Dark theme base styling */
-        :root {
-            --background-color: #1E1E1E;
-            --text-color: #E0E0E0;
-            --accent-color: #6B46C1;
-            --secondary-color: #2D2D2D;
-            --border-color: #444444;
-            --user-bubble-color: #145EAB;
-            --assistant-bubble-color: #2D2D2D;
-        }
+    /* Breva Theme - Professional UI for Thrive Grant Insights */
+
+    /* Base variables for the theme */
+    :root {
+        /* Primary color palette */
+        --breva-primary: #4361EE;
+        --breva-primary-light: #4895EF;
+        --breva-primary-dark: #3A0CA3;
         
-        body {
-            background-color: var(--background-color);
-            color: var(--text-color);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        }
+        /* Secondary color palette */
+        --breva-secondary: #4CC9F0;
+        --breva-accent: #F72585;
         
-        /* Override Streamlit defaults */
+        /* Neutral colors */
+        --breva-bg-dark: #111827;
+        --breva-bg-medium: #1F2937;
+        --breva-bg-light: #374151;
+        --breva-text-light: #F9FAFB;
+        --breva-text-medium: #D1D5DB;
+        --breva-text-dark: #9CA3AF;
+        --breva-border: #4B5563;
+        
+        /* Chat bubbles */
+        --user-bubble-color: #4361EE;
+        --assistant-bubble-color: #1F2937;
+        
+        /* UI components */
+        --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        --transition-speed: 0.3s;
+    }
+
+    /* Global styles */
+    body {
+        background-color: var(--breva-bg-dark);
+        color: var(--breva-text-light);
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        line-height: 1.6;
+    }
+
+    /* Improve layout and container styling */
+    .main .block-container {
+        max-width: 1200px;
+        padding: 1rem 2rem;
+    }
+
+    /* Override Streamlit default styling */
+    .stApp {
+        background-color: var(--breva-bg-dark);
+    }
+
+    /* Header styling */
+    h1, h2, h3, h4, h5, h6 {
+        color: var(--breva-text-light);
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    h1 {
+        font-size: 2rem;
+        letter-spacing: -0.025em;
+        border-bottom: 2px solid var(--breva-primary);
+        padding-bottom: 0.5rem;
+        display: inline-block;
+    }
+
+    h2 {
+        font-size: 1.5rem;
+        color: var(--breva-text-light);
+    }
+
+    h3 {
+        font-size: 1.25rem;
+        color: var(--breva-text-medium);
+    }
+
+    /* Sidebar styling */
+    [data-testid="stSidebar"] {
+        background-color: var(--breva-bg-medium);
+        border-right: 1px solid var(--breva-border);
+        padding: 2rem 1rem;
+    }
+
+    [data-testid="stSidebar"] h2 {
+        color: var(--breva-text-light);
+        font-size: 1.4rem;
+        margin-top: 1rem;
+        margin-bottom: 1.2rem;
+    }
+
+    [data-testid="stSidebar"] h3 {
+        font-size: 1.1rem;
+        color: var(--breva-primary-light);
+        margin-bottom: 0.8rem;
+    }
+
+    [data-testid="stSidebar"] .stMarkdown p {
+        color: var(--breva-text-medium);
+        font-size: 0.95rem;
+        line-height: 1.5;
+    }
+
+    [data-testid="stSidebar"] ol, [data-testid="stSidebar"] ul {
+        color: var(--breva-text-medium);
+        padding-left: 1.2rem;
+    }
+
+    /* Custom divider */
+    .custom-divider {
+        height: 1px;
+        background: linear-gradient(90deg, rgba(75, 85, 99, 0), rgba(75, 85, 99, 1) 50%, rgba(75, 85, 99, 0));
+        margin: 1.5rem 0;
+        border: none;
+    }
+
+    /* Button styling */
+    .stButton button {
+        background-color: var(--breva-primary) !important;
+        color: white !important;
+        border-radius: 8px !important;
+        border: none !important;
+        padding: 0.6rem 1.2rem !important;
+        font-weight: 500 !important;
+        letter-spacing: 0.025em !important;
+        transition: all var(--transition-speed) ease !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+    }
+
+    .stButton button:hover {
+        background-color: var(--breva-primary-light) !important;
+        box-shadow: 0 4px 8px rgba(67, 97, 238, 0.3) !important;
+        transform: translateY(-1px) !important;
+    }
+
+    .stButton button:active {
+        transform: translateY(1px) !important;
+        box-shadow: 0 1px 2px rgba(67, 97, 238, 0.4) !important;
+    }
+
+    /* Download button styling */
+    .stDownloadButton button {
+        background-color: var(--breva-secondary) !important;
+        color: var(--breva-bg-dark) !important;
+        font-weight: 600 !important;
+    }
+
+    .stDownloadButton button:hover {
+        background-color: #71D5F5 !important;
+    }
+
+    /* Status area styling */
+    .status-container {
+        background-color: var(--breva-bg-medium);
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border: 1px solid var(--breva-border);
+        box-shadow: var(--card-shadow);
+    }
+
+    /* Metrics styling */
+    [data-testid="stMetricValue"] {
+        font-size: 1.2rem !important;
+        color: var(--breva-primary-light) !important;
+        font-weight: 600 !important;
+    }
+
+    [data-testid="stMetricLabel"] {
+        color: var(--breva-text-medium) !important;
+    }
+
+    /* Advanced chat styling */
+    .chat-area {
+        background-color: var(--breva-bg-medium);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        box-shadow: var(--card-shadow);
+        border: 1px solid var(--breva-border);
+        min-height: 400px;
+        max-height: 600px;
+        overflow-y: auto;
+    }
+
+    /* Enhanced message bubbles */
+    .message-container {
+        display: flex;
+        width: 100%;
+        margin-bottom: 16px;
+        position: relative;
+        animation: fadeIn 0.3s ease-out;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .user-container {
+        justify-content: flex-end;
+    }
+
+    .assistant-container {
+        justify-content: flex-start;
+    }
+
+    .message-bubble {
+        padding: 12px 16px;
+        border-radius: 16px;
+        max-width: 80%;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        position: relative;
+        line-height: 1.5;
+    }
+
+    .user-bubble {
+        background-color: var(--user-bubble-color);
+        color: white;
+        border-bottom-right-radius: 4px;
+    }
+
+    .assistant-bubble {
+        background-color: var(--assistant-bubble-color);
+        color: var(--breva-text-light);
+        border-bottom-left-radius: 4px;
+    }
+
+    .message-bubble p {
+        margin: 0 0 8px 0;
+    }
+
+    .message-bubble p:last-child {
+        margin-bottom: 0;
+    }
+
+    .message-bubble ul, .message-bubble ol {
+        margin: 8px 0;
+        padding-left: 20px;
+    }
+
+    .message-bubble strong {
+        color: var(--breva-secondary);
+        font-weight: 600;
+    }
+
+    .message-time {
+        font-size: 0.7rem;
+        opacity: 0.7;
+        margin-top: 4px;
+        text-align: right;
+    }
+
+    /* Chat input styling */
+    .stChatInputContainer {
+        padding-bottom: 1rem !important;
+        background-color: var(--breva-bg-dark) !important;
+    }
+
+    .stChatInputContainer > div {
+        background-color: var(--breva-bg-medium) !important;
+        border-radius: 12px !important;
+        border: 1px solid var(--breva-border) !important;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+        padding: 4px !important;
+    }
+
+    [data-testid="stChatInput"] {
+        background-color: var(--breva-bg-light) !important;
+        border-radius: 12px !important;
+        border: 1px solid var(--breva-border) !important;
+        color: var(--breva-text-light) !important;
+        font-size: 1rem !important;
+    }
+
+    [data-testid="stChatButton"] {
+        background-color: var(--breva-primary) !important;
+        border-radius: 50% !important;
+        color: white !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+        transition: all var(--transition-speed) ease !important;
+    }
+
+    [data-testid="stChatButton"]:hover {
+        background-color: var(--breva-primary-light) !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2) !important;
+    }
+
+    /* Custom styled components */
+    .breva-card {
+        background-color: var(--breva-bg-medium);
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border: 1px solid var(--breva-border);
+        box-shadow: var(--card-shadow);
+        transition: all var(--transition-speed) ease;
+    }
+
+    .breva-card:hover {
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        transform: translateY(-2px);
+    }
+
+    .breva-badge {
+        display: inline-block;
+        padding: 0.2rem 0.6rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        margin-right: 0.5rem;
+        background-color: var(--breva-primary);
+        color: white;
+    }
+
+    .breva-badge.secondary {
+        background-color: var(--breva-secondary);
+        color: var(--breva-bg-dark);
+    }
+
+    .breva-badge.accent {
+        background-color: var(--breva-accent);
+    }
+
+    /* Footer styling */
+    .footer {
+        margin-top: 2rem;
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+        border-top: 1px solid var(--breva-border);
+        text-align: center;
+        font-size: 0.8rem;
+        color: var(--breva-text-dark);
+    }
+
+    /* Improve mobile responsiveness */
+    @media (max-width: 768px) {
         .main .block-container {
-            padding-top: 2rem;
-            padding-bottom: 2rem;
-            max-width: 1000px;
-        }
-        
-        /* iMessage-style chat bubbles */
-        .stChatMessage {
-            background-color: transparent !important;
-            border: none !important;
-            padding: 0 !important;
-            margin-bottom: 12px !important;
-        }
-        
-        /* Hide the default chat message icons */
-        .stChatMessage [data-testid="chatAvatarIcon-user"],
-        .stChatMessage [data-testid="chatAvatarIcon-assistant"] {
-            display: none !important;
-        }
-        
-        /* Custom message bubble styling */
-        .message-container {
-            display: flex;
-            width: 100%;
-            margin-bottom: 16px;
-        }
-        
-        .user-container {
-            justify-content: flex-end;
-        }
-        
-        .assistant-container {
-            justify-content: flex-start;
+            padding: 1rem;
         }
         
         .message-bubble {
-            padding: 10px 16px;
-            border-radius: 18px;
-            max-width: 80%;
-            margin: 0;
+            max-width: 90%;
         }
         
-        .user-bubble {
-            background-color: var(--user-bubble-color);
-            color: white;
-            border-bottom-right-radius: 5px;
+        h1 {
+            font-size: 1.5rem;
         }
         
-        .assistant-bubble {
-            background-color: var(--assistant-bubble-color);
-            color: var(--text-color);
-            border-bottom-left-radius: 5px;
-        }
-        
-        /* Remove padding from message containers */
-        .stChatMessage > div:first-child {
-            padding: 0 !important;
-        }
-
-        /* Proper spacing for messages */
-        .message-container + .message-container {
-            margin-top: 8px;
-        }
-        
-        /* Sidebar styling */
-        [data-testid="stSidebar"] {
-            background-color: var(--secondary-color);
-            border-right: 1px solid var(--border-color);
-        }
-        
-        /* Input area styling */
-        [data-baseweb="input"] {
-            border-radius: 20px !important;
-            background-color: var(--secondary-color) !important;
-            border: 1px solid var(--border-color) !important;
-            color: var(--text-color) !important;
-        }
-        
-        /* Button styling */
         .stButton button {
-            background-color: var(--accent-color) !important;
-            color: white !important;
-            border-radius: 20px !important;
-            border: none !important;
             padding: 0.5rem 1rem !important;
-            transition: all 0.3s ease !important;
         }
-        
-        .stButton button:hover {
-            background-color: #805AD5 !important;
-            box-shadow: 0 4px 8px rgba(107, 70, 193, 0.3) !important;
-        }
-        
-        /* Status area styling */
-        .status-area {
-            background-color: var(--secondary-color);
-            border-radius: 10px;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            border: 1px solid var(--border-color);
-        }
-        
-        /* Footer styling */
-        .footer {
-            margin-top: 2rem;
-            padding-top: 1rem;
-            border-top: 1px solid var(--border-color);
-            text-align: center;
-            font-size: 0.8rem;
-            color: #888;
-        }
-        
-        /* Custom divider */
-        .custom-divider {
-            border-top: 1px solid var(--border-color);
-            margin: 1.5rem 0;
-        }
-        
-        /* Override Streamlit chat input styling */
-        .stChatInputContainer {
-            padding-bottom: 1rem !important;
-            background-color: var(--background-color) !important;
-        }
-        
-        .stChatInputContainer > div {
-            background-color: var(--secondary-color) !important;
-            border-radius: 20px !important;
-            border: 1px solid var(--border-color) !important;
-        }
-        
-        /* Hide default chat message container styling */
-        .stChatMessageContent {
-            background-color: transparent !important;
-            padding: 0 !important;
-            border-radius: 0 !important;
-        }
+    }
     </style>
     """, unsafe_allow_html=True)
 
-def custom_chat_message(role, content):
-    """Display a custom chat message with iMessage-style bubbles"""
-    # Clean content by removing any HTML tags that might be in the content string
+def custom_chat_message(role, content, timestamp=None):
+    """Display a custom chat message with enhanced styling and optional timestamp"""
+    current_time = timestamp or datetime.now().strftime("%I:%M %p")
     
     if role == "user":
         st.markdown(f"""
         <div class="message-container user-container">
-            <div class="message-bubble user-bubble">{content}</div>
+            <div class="message-bubble user-bubble">
+                {content}
+                <div class="message-time">{current_time}</div>
+            </div>
         </div>
         """, unsafe_allow_html=True)
     else:
-        # For assistant messages, wrap content in proper markdown formatting
-        # This ensures markdown is rendered properly within the bubble
-        content_div = f'<div class="message-bubble assistant-bubble">{content}</div>'
+        # For assistant messages
         st.markdown(f"""
         <div class="message-container assistant-container">
-            {content_div}
+            <div class="message-bubble assistant-bubble">
+                {content}
+                <div class="message-time">{current_time}</div>
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
+def create_breva_card(title, content, icon=None):
+    """Create a custom styled card component"""
+    icon_html = f'<i class="fas fa-{icon}"></i> ' if icon else ''
+    
+    st.markdown(f"""
+    <div class="breva-card">
+        <h3>{icon_html}{title}</h3>
+        <div>{content}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+def create_header():
+    """Create an enhanced header for the application"""
+    col1, col2 = st.columns([3, 1])
+    
+    with col1:
+        st.title("Thrive Grant Applicant Insights")
+        st.markdown('<div class="breva-badge">AI-Powered</div> <div class="breva-badge secondary">VOC Analytics</div>', unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div style="text-align: right;">
+            <p><strong>Status:</strong> <span style="color: #4CC9F0;">●</span> Active</p>
+            <p><strong>Date:</strong> {datetime.now().strftime('%b %d, %Y')}</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+def create_sidebar():
+    """Create an enhanced sidebar with better styling and organization"""
+    with st.sidebar:
+        # Logo and title
+        st.image("https://via.placeholder.com/200x80?text=Breva", width=200)
+        st.title("Thrive Grant Insights")
+        
+        st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
+        
+        # About section with icons
+        st.subheader("About this tool")
+        st.markdown("""
+        <i class="fas fa-chart-pie" style="color: var(--breva-primary);"></i> This tool helps Breva employees analyze Thrive Grant applications by providing data-driven insights from our Voice of Customer database.
+
+        <div style="margin-top: 1rem;"><i class="fas fa-lightbulb" style="color: var(--breva-secondary);"></i> <strong>How to use:</strong></div>
+        <ol>
+            <li>Type your question about SMB grant applications</li>
+            <li>Review the AI-generated insights</li>
+            <li>Export conversations for reporting</li>
+        </ol>
+        """, unsafe_allow_html=True)
+        
+        st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
+        
+        # Session stats with enhanced styling
+        st.subheader("Session Stats")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.metric("Questions", st.session_state.query_count)
+        with col2:
+            # Calculate session duration
+            if "session_start_time" not in st.session_state:
+                st.session_state.session_start_time = time.time()
+            
+            duration_mins = int((time.time() - st.session_state.session_start_time) / 60)
+            st.metric("Duration", f"{duration_mins} min")
+        
+        st.text_input("Session ID", value=st.session_state.session_id, disabled=True)
+        
+        st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
+        
+        # Action buttons with improved styling
+        st.subheader("Actions")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("📋 New Chat", use_container_width=True):
+                st.session_state.messages = []
+                st.session_state.conversation_started = False
+                st.session_state.query_count = 0
+                st.session_state.session_id = f"session_{int(time.time())}"
+                st.session_state.session_start_time = time.time()
+                st.rerun()
+        
+        with col2:
+            if st.session_state.conversation_started:
+                chat_history = download_chat_history()
+                if chat_history:
+                    st.download_button(
+                        label="💾 Export",
+                        data=chat_history,
+                        file_name=f"breva_chat_{st.session_state.session_id}.json",
+                        mime="application/json",
+                        use_container_width=True
+                    )
+
+
 def display_messages():
-    """Display all messages in the chat history with custom styling"""
-    for message in st.session_state.messages:
-        custom_chat_message(message["role"], message["content"])
+    """Display all messages in the chat history with enhanced styling"""
+    # Create a container for the chat area
+    chat_container = st.container()
+    
+    with chat_container:
+        st.markdown('<div class="chat-area">', unsafe_allow_html=True)
+        
+        for idx, message in enumerate(st.session_state.messages):
+            # Generate a consistent timestamp for each message
+            timestamp = (datetime.now() - timedelta(minutes=len(st.session_state.messages) - idx)).strftime("%I:%M %p")
+            custom_chat_message(message["role"], message["content"], timestamp)
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+
+
+def display_welcome_message():
+    """Display an enhanced welcome message with formatting"""
+    welcome_message = """
+    <h3 style="color: var(--breva-primary-light);">👋 Welcome to the Breva Thrive Grant Insights tool!</h3>
+    
+    <p>I can help you analyze applications by providing data-driven insights on:</p>
+    
+    <ul>
+        <li><strong style="color: var(--breva-secondary);">Financial challenges</strong> faced by applicants</li>
+        <li><strong style="color: var(--breva-secondary);">Business goals</strong> and growth strategies</li>
+        <li><strong style="color: var(--breva-secondary);">Funding needs</strong> and intended use of grants</li>
+        <li><strong style="color: var(--breva-secondary);">Community impact</strong> of applicant businesses</li>
+        <li><strong style="color: var(--breva-secondary);">Equity and inclusion</strong> efforts by applicants</li>
+    </ul>
+    
+    <p>Ask me a question to get started with your data exploration!</p>
+    """
+    custom_chat_message("assistant", welcome_message)
+
+def create_status_area():
+    """Create an enhanced status area with metrics and info"""
+    with st.container():
+        st.markdown('<div class="status-container">', unsafe_allow_html=True)
+        
+        cols = st.columns([2, 1, 1])
+        
+        with cols[0]:
+            st.markdown("""
+            <h3><i class="fas fa-database" style="color: var(--breva-primary);"></i> AI-powered VOC Analysis</h3>
+            <p>Ask questions about financial challenges, business goals, or funding needs of grant applicants. The AI will analyze patterns and provide data-driven insights.</p>
+            """, unsafe_allow_html=True)
+        
+        with cols[1]:
+            st.markdown("""
+            <div style="text-align: center; padding: 0.5rem; background-color: var(--breva-bg-light); border-radius: 8px;">
+                <div style="font-size: 0.8rem; color: var(--breva-text-medium);">DATABASE STATUS</div>
+                <div style="font-size: 1.2rem; color: var(--breva-secondary);">CONNECTED</div>
+                <div style="font-size: 0.8rem; color: var(--breva-text-medium);">Thrive Grant Q2 2025</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with cols[2]:
+            st.markdown("""
+            <div style="text-align: center; padding: 0.5rem; background-color: var(--breva-bg-light); border-radius: 8px;">
+                <div style="font-size: 0.8rem; color: var(--breva-text-medium);">AI MODEL</div>
+                <div style="font-size: 1.2rem; color: var(--breva-secondary);">CLAUDE 3.7</div>
+                <div style="font-size: 0.8rem; color: var(--breva-text-medium);">Sonnet (2025)</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+def create_custom_chat_input():
+    """Create a custom styled chat input with a search icon"""
+    st.markdown("""
+    <div class="search-container">
+        <i class="fas fa-search search-icon"></i>
+        <input type="text" id="custom-input" class="search-input" placeholder="Ask a question about Thrive Grant applicants...">
+    </div>
+    
+    <script>
+        const input = document.getElementById('custom-input');
+        input.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                // This would need to be connected to Streamlit
+                console.log('Input value:', input.value);
+                input.value = '';
+            }
+        });
+    </script>
+    """, unsafe_allow_html=True)
+
+def create_footer():
+    """Create an enhanced footer with branding and info"""
+    st.markdown("""
+    <div class="footer">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <div>Breva Thrive Grant Insights Tool</div>
+            <div>Internal Use Only</div>
+            <div>© Breva 2025</div>
+        </div>
+        <div style="font-size: 0.7rem; opacity: 0.7;">
+            Powered by Claude 3.7 | Version 2.4.1 | Last updated: April 15, 2025
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+def process_user_message(user_input):
+    """Process a user message and generate a response with enhanced UX"""
+    # Add user message to chat history
+    add_user_message(user_input)
+    
+    # Show typing indicator
+    typing_placeholder = st.empty()
+    typing_placeholder.markdown("""
+    <div class="message-container assistant-container">
+        <div class="message-bubble assistant-bubble" style="display: inline-block;">
+            <div class="typing-indicator">
+                <span>●</span><span>●</span><span>●</span>
+            </div>
+        </div>
+    </div>
+    <style>
+    .typing-indicator {
+        display: flex;
+        gap: 4px;
+    }
+    .typing-indicator span {
+        animation: typing-bounce 1s infinite ease-in-out;
+    }
+    .typing-indicator span:nth-child(1) { animation-delay: 0s; }
+    .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes typing-bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-5px); }
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Generate assistant response
+    try:
+        # Simulate thinking time for better UX
+        time.sleep(0.5)
+        
+        answer = st.session_state.querier.generate_answer(user_input, st.session_state.messages[:-1])
+        add_assistant_message(answer)
+        
+        # Remove typing indicator and show the response
+        typing_placeholder.empty()
+        custom_chat_message("assistant", answer)
+    except Exception as e:
+        # Handle errors gracefully
+        error_msg = f"I apologize, but I encountered an error while processing your request: {str(e)}"
+        add_assistant_message(error_msg)
+        
+        # Remove typing indicator and show the error
+        typing_placeholder.empty()
+        custom_chat_message("assistant", error_msg)
+
 
 def add_user_message(user_input):
     """Add a user message to the chat history"""
@@ -565,28 +1016,11 @@ def add_assistant_message(content):
     """Add an assistant message to the chat history"""
     st.session_state.messages.append({"role": "assistant", "content": content})
 
-def process_user_message(user_input):
-    """Process a user message and generate a response"""
-    # Add user message to chat history
-    add_user_message(user_input)
-    
-    # Display user message with custom styling
-    custom_chat_message("user", user_input)
-    
-    # Generate assistant response
-    with st.spinner("Thinking..."):
-        try:
-            answer = st.session_state.querier.generate_answer(user_input, st.session_state.messages[:-1])
-            add_assistant_message(answer)
-            custom_chat_message("assistant", answer)
-        except Exception as e:
-            error_msg = f"Error: {str(e)}"
-            add_assistant_message(error_msg)
-            custom_chat_message("assistant", error_msg)
 
 # ------------------------------------------------------------------------------
 # Main Streamlit Application
 # ------------------------------------------------------------------------------
+# Main Streamlit Application
 def main():
     # Set page configuration
     st.set_page_config(
@@ -598,76 +1032,21 @@ def main():
     
     # Initialize session state
     initialize_session_state()
-    
+
     # Apply custom CSS for dark theme
     apply_custom_css()
     
     # Sidebar configuration
-    with st.sidebar:
-        st.image("https://via.placeholder.com/150x50?text=Breva", width=150)
-        st.title("Thrive Grant Insights")
-        
-        st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
-        
-        # App information and instructions
-        st.subheader("About this tool")
-        st.markdown("""
-        This tool helps Breva employees analyze Thrive Grant applications by providing insights from our Voice of Customer database.
+    create_sidebar()
 
-        **How to use:**
-        1. Type your question about SMB grant applications
-        2. Review the AI-generated insights
-        3. Export conversations for reporting
-        """)
-        
-        st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
-        
-        # Session stats
-        st.subheader("Session Stats")
-        st.metric("Questions Asked", st.session_state.query_count)
-        st.metric("Session ID", st.session_state.session_id)
-        
-        st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
-        
-        # Action buttons
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("New Chat", use_container_width=True):
-                st.session_state.messages = []
-                st.session_state.conversation_started = False
-                st.session_state.query_count = 0
-                st.session_state.session_id = f"session_{int(time.time())}"
-                st.rerun()
-        
-        with col2:
-            if st.session_state.conversation_started:
-                chat_history = download_chat_history()
-                if chat_history:
-                    st.download_button(
-                        label="Export",
-                        data=chat_history,
-                        file_name=f"breva_chat_{st.session_state.session_id}.json",
-                        mime="application/json",
-                        use_container_width=True
-                    )
-    
     # Main content area
     st.title("Thrive Grant Applicant Insights")
     
     # Status area
-    with st.container():
-        cols = st.columns([3, 1])
-        with cols[0]:
-            st.markdown("### AI-powered analysis of SMB grant applications")
-            st.markdown("Ask questions about financial challenges, business goals, or funding needs of applicants.")
-        with cols[1]:
-            st.markdown("<div style='text-align: right;'>", unsafe_allow_html=True)
-            st.markdown(f"**Status:** {'Active' if initialize_querier() else 'Error'}")
-            st.markdown(f"**Date:** {datetime.now().strftime('%b %d, %Y')}")
-            st.markdown("</div>", unsafe_allow_html=True)
-    
+    create_status_area()
+
     st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
-    
+
     # Initialize querier
     if not initialize_querier():
         st.stop()
@@ -677,20 +1056,7 @@ def main():
     with chat_container:
         if not st.session_state.conversation_started:
             # Welcome message for new conversations
-            welcome_message = """
-👋 Welcome to the Breva Thrive Grant Insights tool!
-
-I can help you analyze applications by providing insights on:
-
-- **Financial challenges** faced by applicants
-- **Business goals** and growth strategies
-- **Funding needs** and intended use of grants
-- **Community impact** of applicant businesses
-- **Equity and inclusion** efforts by applicants
-
-How can I assist you today?
-            """
-            custom_chat_message("assistant", welcome_message)
+            display_welcome_message()
         else:
             # Display existing messages with custom styling
             display_messages()
@@ -701,11 +1067,7 @@ How can I assist you today?
         process_user_message(user_input)
     
     # Footer
-    st.markdown("""
-    <div class="footer">
-        Breva Thrive Grant Insights Tool | Internal Use Only | © Breva 2025
-    </div>
-    """, unsafe_allow_html=True)
+    create_footer()
 
 if __name__ == "__main__":
     main()
