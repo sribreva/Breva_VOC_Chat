@@ -37,21 +37,23 @@ class VOCDatabaseQuerier:
     ):
         logging.info("Initializing VOC Database Querier (Offline Summaries)...")
         
-        # Validate API keys
+        # There were some initial issues with the API key, so we check if it's provided
+        # This should already be integrated through GitHub Secrets
         if not anthropic_api_key:
             raise ValueError("Anthropic API key not provided")
         if not pinecone_api_key:
             raise ValueError("Pinecone API key not provided")
-            
+
+        # Define Key     
         self.api_key = anthropic_api_key
 
-        # Connection to Pinecone - using updated API
+        # Here we define the pinecone key, index name, and initialize the index
         logging.info("Connecting to Pinecone...")
         self.pc = Pinecone(api_key=pinecone_api_key)
         self.index_name = index_name
         self.index = self.pc.Index(self.index_name)
         
-        # Get index stats to confirm connection
+        # Here we use describe_index_stats to check if the connection is successful
         try:
             stats = self.index.describe_index_stats()
             vector_count = stats.get('total_vector_count', 0)
@@ -65,9 +67,9 @@ class VOCDatabaseQuerier:
         self.anthropic = Anthropic(api_key=self.api_key)
         logging.info("Anthropic client initialized successfully.")
 
-        # Question Types as defined in VOC_map_reduce.py
+        # These were the question types 
         self.question_types = {
-            # Financial Challenges
+            # Financial_challenges 1, 2, 3, and 4 
             "financial_challenges_1": {
                 "context": "What specific challenges do you face in managing and forecasting your cash flow?",
                 "keywords": ["cash flow", "manage cash", "forecast", "forecasting", "cashflow"]
@@ -158,22 +160,31 @@ class VOCDatabaseQuerier:
 
     def determine_question_type(self, user_query: str) -> str:
         """
-        Determine the question type based on the user query using keyword matching.
+        Purpose: Map the user's question to a question type using keyword matching.
+        Input:
+        - user_query: The user's input question.
+        Output: The determined question type.
         """
+
+        # The lower() function is used to make the keyword matching case-insensitive
         user_query = user_query.lower()
         
+        # Here is a dictionary to store the scores for each question type
         scores = {}
+
+        # For each question and info within the question_types dictionary, we check if the keywords are in the user query
         for qtype, info in self.question_types.items():
             score = 0
             for keyword in info["keywords"]:
+                # If the keyword is in the user query, we increase the score
                 if keyword.lower() in user_query:
                     score += 1
             scores[qtype] = score
         
-        # Get the question type with the highest score
+        # Here we get the question that has the most points within the scores dictionary
         best_type = max(scores.items(), key=lambda x: x[1])
         
-        # If no keywords matched, default to financial_challenges_1
+        # Worst case, we default to financial_challenges_1
         if best_type[1] == 0:
             logging.info("[determine_question_type] No keywords matched. Using default question type: financial_challenges_1")
             return "financial_challenges_1"
@@ -183,15 +194,19 @@ class VOCDatabaseQuerier:
 
     def get_offline_summary(self, question_type: str) -> str:
         """
-        Fetch the offline summary for a given question type from Pinecone.
+        Purpose: Fetch the offline summary for the given question type from Pinecone.
+        Input:
+        - question_type: The question type for which to fetch the summary.
+        Output: The summary text.
         """
+        # Here we define the summary question type
         summary_qtype = f"{question_type}_summary"
         logging.info(f"Fetching offline summary for question_type='{summary_qtype}'")
         
         try:
-            # For Pinecone, we provide a dummy vector for the query.
-            dummy_vector = [0.0] * 384  # Adjust dimension to your index if needed
+            dummy_vector = [0.0] * 384  
             
+            # Here we use the query() method to get the summary for the question type
             query_results = self.index.query(
                 vector=dummy_vector,
                 filter={"question_type": summary_qtype},
@@ -199,17 +214,21 @@ class VOCDatabaseQuerier:
                 include_metadata=True
             )
             
+            # Check if there are any matches
             matches = getattr(query_results, 'matches', [])
+            # If there are no matches, we log a warning and return an empty string
             if not matches:
                 logging.warning(f"No summary found for {summary_qtype}")
                 return ""
             
+            # Extract the summary text from the metadata. We extract from the matches list
             summary_text = matches[0].metadata.get("text", "")
             if not summary_text:
                 logging.warning(f"No text found in metadata for {summary_qtype}")
                 return ""
                 
             logging.info(f"Successfully retrieved summary for {summary_qtype}")
+            # Return the summary text
             return summary_text
             
         except Exception as e:
@@ -218,10 +237,17 @@ class VOCDatabaseQuerier:
 
     def build_prompt_with_offline_summary(self, user_query: str, summary: str, conversation_history: List[Dict[str, str]]) -> str:
         """
-        Build a prompt with the user query, offline summary, and conversation history.
+        Purpose: Build the final prompt for Anthropic using the user query, summary, and conversation history.
+        Input:
+        - user_query: The user's input question.
+        - summary: The offline summary text.
+        - conversation_history: The full conversation history.
+        Output: The final prompt string.
         """
-        # Build conversation history string
+        # Here we built the conversation thread that will be used in the prompt for context
         conversation_history_text = ""
+
+        # For each message in conversation_history, we check if the role is user or assistant
         for msg in conversation_history:
             if msg["role"] == "user":
                 conversation_history_text += f"User: {msg['content']}\n"
@@ -229,67 +255,71 @@ class VOCDatabaseQuerier:
                 conversation_history_text += f"Assistant: {msg['content']}\n"
                     
         prompt = f"""
-You are an expert data analyst assistant for **Breva**, a financial technology company focused on supporting small and medium-sized businesses (SMBs). You're working with the Thrive Grant program team to analyze application data.
+            You are an expert data analyst assistant for **Breva**, a financial technology company focused on supporting small and medium-sized businesses (SMBs). You're working with the Thrive Grant program team to analyze application data.
 
-### **CONTEXT AND PURPOSE**
-- You are exclusively serving Breva employees who need to extract insights from Thrive Grant applications
-- The Thrive Grant program provides financial assistance to SMBs facing various challenges
-- Your analysis will help Breva improve their products, services, and grant program
-- You're analyzing real responses from grant applicants about their business needs and challenges
+            ### **CONTEXT AND PURPOSE**
+            - You are exclusively serving Breva employees who need to extract insights from Thrive Grant applications
+            - The Thrive Grant program provides financial assistance to SMBs facing various challenges
+            - Your analysis will help Breva improve their products, services, and grant program
+            - You're analyzing real responses from grant applicants about their business needs and challenges
 
-### **CONVERSATION HISTORY**
----
-{conversation_history_text}
----
+            ### **CONVERSATION HISTORY**
+            ---
+            {conversation_history_text}
+            ---
 
-### **CURRENT QUERY**
-The user (a Breva employee) just asked: **"{user_query}"**
+            ### **CURRENT QUERY**
+            The user (a Breva employee) just asked: **"{user_query}"**
 
-### **RELEVANT VOC DATA**
-Below is a summary of relevant Voice of Customer (VOC) data from our grant applications database:
----
-{summary}
----
+            ### **RELEVANT VOC DATA**
+            Below is a summary of relevant Voice of Customer (VOC) data from our grant applications database:
+            ---
+            {summary}
+            ---
 
-### **RESPONSE REQUIREMENTS**
+            ### **RESPONSE REQUIREMENTS**
 
-1. **Analytical Approach**
-- Analyze patterns, trends, and outliers in the data
-- Identify key segments and how they differ (by business size, industry, etc. if available)
-- Provide quantitative breakdowns with percentages when possible
-- Highlight surprising or counterintuitive findings
+            1. **Analytical Approach**
+            - Analyze patterns, trends, and outliers in the data
+            - Identify key segments and how they differ (by business size, industry, etc. if available)
+            - Provide quantitative breakdowns with percentages when possible
+            - Highlight surprising or counterintuitive findings
 
-2. **Response Structure**
-- Start with a "Key Findings" section (3-5 bullet points of most important insights)
-- Use clear headings and subheadings to organize information
-- Include a "Business Implications" section
-- End with 1-2 suggested follow-up questions or areas for deeper investigation
+            2. **Response Structure**
+            - Start with a "Key Findings" section (3-5 bullet points of most important insights)
+            - Use clear headings and subheadings to organize information
+            - Include a "Business Implications" section
+            - End with 1-2 suggested follow-up questions or areas for deeper investigation
 
-3. **Data Presentation**
-- Present statistics clearly (X% of respondents mentioned Y)
-- Use comparative language (more likely to, less frequently than, etc.)
-- Distinguish between facts from the data vs. your interpretations
-- Support insights with specific examples or quotes from the data when relevant
+            3. **Data Presentation**
+            - Present statistics clearly (X% of respondents mentioned Y)
+            - Use comparative language (more likely to, less frequently than, etc.)
+            - Distinguish between facts from the data vs. your interpretations
+            - Support insights with specific examples or quotes from the data when relevant
 
-4. **Tone and Focus**
-- Be objective, analytical, and business-focused
-- Avoid giving advice to SMBs directly
-- Frame everything as insights FOR Breva employees ABOUT applicant needs
-- Maintain a helpful, collaborative tone with the Breva team member
+            4. **Tone and Focus**
+            - Be objective, analytical, and business-focused
+            - Avoid giving advice to SMBs directly
+            - Frame everything as insights FOR Breva employees ABOUT applicant needs
+            - Maintain a helpful, collaborative tone with the Breva team member
 
-Now, craft a concise, structured, data-driven response that helps the Breva employee understand the patterns and implications in this VOC data.
-"""
+            Now, craft a concise, structured, data-driven response that helps the Breva employee understand the patterns and implications in this VOC data.
+            """
         return prompt
 
     def generate_answer(self, user_query: str, conversation_history: List[Dict[str, str]]) -> str:
         """
-        Generate an answer using Anthropic based on the user query and the full conversation history.
+        Purpose: Generate an answer using Anthropic based on the user query, offline summary, and conversation history.
+        Input:
+        - user_query: The user's input question.
+        - conversation_history: The full conversation history.
+        Output: The generated answer string.
         """
         try:
-            # Determine the question type
+            # First, we determine what type of question the user is asking
             qtype = self.determine_question_type(user_query)
             
-            # Fetch the offline summary for the question type
+            # For the given question type, we get the offline summary using the get_offline_summary method
             offline_summary = self.get_offline_summary(qtype)
             if not offline_summary:
                 return (f"No offline summary found for question type '{qtype}'. "
@@ -299,7 +329,7 @@ Now, craft a concise, structured, data-driven response that helps the Breva empl
             final_prompt = self.build_prompt_with_offline_summary(user_query, offline_summary, conversation_history)
             logging.info("FINAL PROMPT constructed.")
     
-            # Call Anthropic to generate the final answer
+            # Here we use the anthropic API to generate the answer
             response = self.anthropic.messages.create(
                 model="claude-3-7-sonnet-20250219",
                 max_tokens=8192,
@@ -310,7 +340,7 @@ Now, craft a concise, structured, data-driven response that helps the Breva empl
                 }]
             )
             
-            # Handle response content extraction
+            # Extract the answer from the response
             if hasattr(response.content[0], 'text'):
                 return response.content[0].text
             else:
@@ -323,7 +353,14 @@ Now, craft a concise, structured, data-driven response that helps the Breva empl
 # Helper functions for the Streamlit app
 # ------------------------------------------------------------------------------
 def initialize_session_state():
-    """Initialize session state variables if they don't exist"""
+    """
+    Purpose: Initialize session state variables for the Streamlit app.
+    Input: None
+    Output: None
+    """
+
+    # The following if statements check if the session state variables are already set
+    # If not, they are initialized with default values
     if "messages" not in st.session_state:
         st.session_state.messages = []
     
@@ -340,9 +377,16 @@ def initialize_session_state():
         st.session_state.temp_user_input = ""
 
 def initialize_querier():
-    """Initialize the VOCDatabaseQuerier and store it in session state"""
+    """
+    Purpose: Initialize the VOC Database Querier if not already done.
+    Input: None
+    Output: None
+    """
+
+    # If the querier is not already initialized, we create a new instance
     if "querier" not in st.session_state:
         try:
+            # Here we use a spinner to indicate loading. We also check if the API keys are set
             with st.spinner("Initializing chatbot..."):
                 pinecone_api_key = st.secrets.get("pinecone_api_key")
                 anthropic_api_key = st.secrets.get("anthropic_api_key")
@@ -352,6 +396,7 @@ def initialize_querier():
                     st.info("Go to your app settings in Streamlit Cloud, navigate to 'Secrets', and add 'pinecone_api_key' and 'anthropic_api_key'.")
                     return False
                 
+                # Here we use the VOCDatabase Querier class to create a new instance
                 st.session_state.querier = VOCDatabaseQuerier(
                     pinecone_api_key=pinecone_api_key,
                     index_name="voc-index-2025-q2",
@@ -364,15 +409,23 @@ def initialize_querier():
     return True
 
 def download_chat_history():
-    """Generate a downloadable file with the chat history"""
+    """
+    Purpose: Download the chat history as a JSON file.
+    Input: None
+    Output: JSON string of chat history.
+    """
     if not st.session_state.messages:
         return None
-    
+    # Here we create a JSON object with the session ID, timestamp, and messages
     chat_export = {"session_id": st.session_state.session_id, "timestamp": datetime.now().isoformat(), "messages": st.session_state.messages}
     return json.dumps(chat_export, indent=2)
 
 def apply_custom_css():
-    """Apply custom CSS for the professional Breva theme"""
+    """
+    Purpose: Apply custom CSS styles to the Streamlit app.
+    Input: None
+    Output: None
+    """
     st.markdown("""
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
@@ -733,19 +786,27 @@ def apply_custom_css():
     </style>
     """, unsafe_allow_html=True)
 
-def custom_chat_message(role: str,
-                        content: str,
-                        timestamp: str | None = None,
-                        is_html: bool = False):
-    """Render chat bubbles with optional raw HTML."""
+def custom_chat_message(role: str, content: str, timestamp: str | None = None, is_html: bool = False):
+    """
+    Purpose: Display a custom chat message with enhanced styling.
+    Input:
+    - role: The role of the message sender (user or assistant).
+    - content: The message content.
+    - timestamp: The timestamp for the message (optional).
+    - is_html: Whether the content is HTML (default: False).
+    Output: None
+    """
+    # Here we set the current time if no timestamp is provided
     current_time = timestamp or datetime.now().strftime("%I:%M %p")
-
-    # 🔒 Escape only when the payload is plain text
+    
+    # If the content is HTML, we use textwrap.dedent to remove leading whitespace
+    # Otherwise, we escape the content to prevent HTML injection
     if is_html:
         content = textwrap.dedent(content).strip()
     else:
         content = html.escape(content)
 
+    # If the role is user, we set the bubble to user-container
     if role == "user":
         bubble = f"""
         <div class="message-container user-container">
@@ -763,12 +824,21 @@ def custom_chat_message(role: str,
             </div>
         </div>"""
 
+    # We use streamlit.markdown to display the message bubble
     st.markdown(textwrap.dedent(bubble), unsafe_allow_html=True)
 
 def create_breva_card(title, content, icon=None):
-    """Create a custom styled card component"""
+    """
+    Purpose: Create a custom Breva card with a title, content, and optional icon.
+    Input:
+    - title: The title of the card.
+    - content: The content of the card.
+    - icon: The Font Awesome icon name 
+    Output: None
+    """
     icon_html = f'<i class="fas fa-{icon}"></i> ' if icon else ''
     
+    # Streamlit markdown for the card
     st.markdown(f"""
     <div class="breva-card">
         <h3>{icon_html}{title}</h3>
@@ -777,13 +847,21 @@ def create_breva_card(title, content, icon=None):
     """, unsafe_allow_html=True)
 
 def create_header():
-    """Create an enhanced header for the application"""
+    """
+    Purpose: Create a custom header with the app title and status.
+    Input: None
+    Output: None
+    """
+
+    # Create a header with two columns
     col1, col2 = st.columns([3, 1])
     
+    # column 1: Title and badges
     with col1:
         st.title("Thrive Grant Applicant Insights")
         st.markdown('<div class="breva-badge">AI-Powered</div> <div class="breva-badge secondary">VOC Analytics</div>', unsafe_allow_html=True)
     
+    # column 2: Status and date
     with col2:
         st.markdown(f"""
         <div style="text-align: right;">
@@ -793,16 +871,22 @@ def create_header():
         """, unsafe_allow_html=True)
 
 def create_sidebar():
-    """Create an enhanced sidebar with better styling and organization"""
+    """
+    Purpose: Create a custom sidebar with the app logo, title, and session stats.
+    Input: None
+    Output: None
+    """
+
+    # Define the sidebar layout
     with st.sidebar:
-        # Logo and title
+        # Breva image
         st.image("https://github.com/sribreva/Breva_VOC_Chat/raw/main/Breva.jpeg", width=200)
 
         st.title("Thrive Grant Insights")
         
         st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
         
-        # About section with icons
+        # The about section 
         st.subheader("About this tool")
         st.markdown("""
         <i class="fas fa-chart-pie" style="color: var(--breva-primary);"></i> This tool helps Breva employees analyze Thrive Grant applications by providing data-driven insights from our Voice of Customer database.
@@ -816,11 +900,10 @@ def create_sidebar():
         """, unsafe_allow_html=True)
         
         st.markdown('<div class="custom-divider"></div>', unsafe_allow_html=True)
-        
-        # Session stats with enhanced styling
         st.subheader("Session Stats")
         col1, col2 = st.columns(2)
         
+        # Display session stats
         with col1:
             st.metric("Questions", st.session_state.query_count)
         with col2:
@@ -850,6 +933,7 @@ def create_sidebar():
         
         with col2:
             if st.session_state.conversation_started:
+                # We use the download_chat_history function to get the chat history
                 chat_history = download_chat_history()
                 if chat_history:
                     st.download_button(
@@ -862,23 +946,37 @@ def create_sidebar():
 
 
 def display_messages():
-    """Display all messages in the chat history with enhanced styling"""
-    # Create a container for the chat area
+    """
+    Purpose: Display the chat messages in a custom chat area.
+    Input: None
+    Output: None
+    """
+    # Here we use the streamlit.container() to create a container for the chat area
     chat_container = st.container()
     
+    # With teh chat_container, we create a custom chat area
     with chat_container:
+        # We use the markdown to create a custom chat area
         st.markdown('<div class="chat-area">', unsafe_allow_html=True)
         
+        # For each index, message in the session state messages, we display the message
         for idx, message in enumerate(st.session_state.messages):
-            # Generate a consistent timestamp for each message
+            # Time stamp for the message
             timestamp = (datetime.now() - timedelta(minutes=len(st.session_state.messages) - idx)).strftime("%I:%M %p")
+            # Here we use the custom_chat_message function to display the message
             custom_chat_message(message["role"], message["content"], timestamp)
         
         st.markdown('</div>', unsafe_allow_html=True)
 
 
 def display_welcome_message():
-    """Assistant welcome banner (dedented so no stray code)."""
+    """
+    Purpose: Display a welcome message in the chat area.
+    Input: None
+    Output: None
+    """
+
+    # Here we use the streamlit textwrap.dedent to create a welcome message
     welcome_message = textwrap.dedent("""
     <h3 style="color: var(--breva-primary-light);">
         👋 Welcome to the Breva Thrive Grant Insights tool!
@@ -895,10 +993,18 @@ def display_welcome_message():
 
     <p>Ask me a question to get started with your data exploration!</p>
     """)
+
+    # Here we use our custom
     custom_chat_message("assistant", welcome_message, is_html=True)
 
 def create_status_area():
-    """Create an enhanced status area with metrics and info"""
+    """
+    Purpose: Create a custom status area with database and AI model information.
+    Input: None
+    Output: None
+    """
+
+    # With the streamlit container, we create a custom status area
     with st.container():
         st.markdown('<div class="status-container">', unsafe_allow_html=True)
         
@@ -929,8 +1035,13 @@ def create_status_area():
             """, unsafe_allow_html=True)
         
         st.markdown('</div>', unsafe_allow_html=True)
+
 def create_custom_chat_input():
-    """Create a custom styled chat input with a search icon"""
+    """
+    Purpose: Create a custom chat input area with enhanced styling.
+    Input: None
+    Output: None
+    """
     st.markdown("""
     <div class="search-container">
         <i class="fas fa-search search-icon"></i>
@@ -950,7 +1061,11 @@ def create_custom_chat_input():
     """, unsafe_allow_html=True)
 
 def create_footer():
-    """Create an enhanced footer with branding and info"""
+    """
+    Purpose: Create a custom footer with app information and copyright.
+    Input: None
+    Output: None
+    """
     st.markdown("""
     <div class="footer">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
@@ -965,14 +1080,18 @@ def create_footer():
     """, unsafe_allow_html=True)
 
 def process_user_message(user_input):
-    """Process a user message and generate a response with enhanced UX"""
-    # Add user message to chat history
+    """
+    Purpose: Process the user's input message and generate a response.
+    Input: user_input: The user's input message.
+    Output: None
+    """
+    # Here we use the add_user_message function to add the user message to the session state
     add_user_message(user_input)
     
-    # Display user message immediately
-    custom_chat_message("user", user_input)  # This line ensures the user's input appears in the chat immediately
+    # Here we use the custom_chat_message function to display the user message
+    custom_chat_message("user", user_input) 
     
-    # Show typing indicator while processing
+    # Type indicator for the assistant when typing
     typing_placeholder = st.empty()
     typing_placeholder.markdown("""
     <div class="message-container assistant-container">
@@ -1000,43 +1119,57 @@ def process_user_message(user_input):
     </style>
     """, unsafe_allow_html=True)
     
-    # Generate assistant response
+    # Here we generate the response 
     try:
-        # Simulate thinking time for better UX
+        # Simulate typing delay
         time.sleep(0.5)
         
+        # Generate the answer using the querier
         answer = st.session_state.querier.generate_answer(user_input, st.session_state.messages[:-1])
+        # Here we use the add_assistant_message function to add the assistant message to the session state
         add_assistant_message(answer)
         
         # Remove typing indicator and show the response
         typing_placeholder.empty()
+
+        # Here we use the custom_chat_message function to display the assistant message
         custom_chat_message("assistant", answer)
     except Exception as e:
         # Handle errors gracefully
         error_msg = f"I apologize, but I encountered an error while processing your request: {str(e)}"
+        # Here we use the add_assistant_message function to add the error message to the session state
         add_assistant_message(error_msg)
         
         # Remove typing indicator and show the error
         typing_placeholder.empty()
+        # Here we use the same custom_chat_message function to display the error message
         custom_chat_message("assistant", error_msg)
 
 
 
 def add_user_message(user_input):
-    """Add a user message to the chat history"""
+    """
+    Purpose: Add a user message to the chat history.
+    Input: user_input: The user's input message.
+    Output: None
+    """
     st.session_state.messages.append({"role": "user", "content": user_input})
     st.session_state.conversation_started = True
     st.session_state.query_count += 1
 
 def add_assistant_message(content):
-    """Add an assistant message to the chat history"""
+    """
+    Purpose: Add an assistant message to the chat history.
+    Input: content: The assistant's response content.
+    Output: None
+    """
     st.session_state.messages.append({"role": "assistant", "content": content})
 
 
 # ------------------------------------------------------------------------------
 # Main Streamlit Application
 # ------------------------------------------------------------------------------
-# Main Streamlit Application
+
 def main():
     # Set page configuration
     st.set_page_config(
@@ -1046,7 +1179,7 @@ def main():
         initial_sidebar_state="expanded"
     )
     
-    # Initialize session state
+    # Here we initialize the session state
     initialize_session_state()
 
     # Apply custom CSS for dark theme
@@ -1069,9 +1202,11 @@ def main():
     
     # Chat interface
     chat_container = st.container()
+
+    # With the chat_container, we create a custom chat area
     with chat_container:
         if not st.session_state.conversation_started:
-            # Welcome message for new conversations
+            # Here we use the display_welcome_message function to display the welcome message
             display_welcome_message()
         else:
             # Display existing messages with custom styling
@@ -1079,6 +1214,8 @@ def main():
     
     # Chat input
     user_input = st.chat_input("Ask a question about Thrive Grant applicants...")
+
+    # If there is a user input, we process the message
     if user_input:
         process_user_message(user_input)
     
