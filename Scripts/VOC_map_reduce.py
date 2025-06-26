@@ -19,14 +19,13 @@ colorama.init()
 # Logging
 logging.basicConfig(
     level=logging.INFO,
-
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
 # This class is responsible for logging the output to a file
 class Logger:
-    def __init__(self, filename="/Users/sveerisetti/Desktop/VOC/Outputs/claude_q1_2025_update_screen.txt"):
+    def __init__(self, filename="/Users/sveerisetti/Desktop/Breva_VOC_Chat-main/Outputs/claude_q1_2025_update_screen.txt"):
         self.terminal = sys.stdout
         self.log = open(filename, 'w', encoding='utf-8')
 
@@ -44,9 +43,10 @@ class Logger:
 class VOCMapReduceProcessor:
     def __init__(
         self,
-        persist_directory="/Users/sveerisetti/Desktop/VOC/chroma_database_update_2025_q1_update1",
+        persist_directory="/Users/sveerisetti/Desktop/Breva_VOC_Chat-main/chroma_database_update_2025_q2",
         batch_size: int = 60,
-        anthropic_api_key: str = "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" 
+        # Insert Anthropic Key
+        anthropic_api_key: str = "" 
     ):
         """
         Initialize the Map-Reduce processor for VOC data.
@@ -86,7 +86,11 @@ class VOCMapReduceProcessor:
             
             # Grant Related
             "grant_usage",
-            "additional_context"
+            "additional_context",
+
+            # Newly added question types
+            "reason_financial_assistance",
+            "financial_planning_responsible"
         ]
         
         # These are the question types. These are the same as the keys in the question_types dictionary in the VOC_chroma_db_upload.py file
@@ -177,6 +181,18 @@ class VOCMapReduceProcessor:
             "financial_advisor_questions": {
                 "context": "Questions for financial advisor",
                 "columns": ["Please provide your top three (3) questions you would ask a financial advisor or business coach, about your business?"]
+            },
+
+            # Financial assistance rationale
+            "reason_financial_assistance": {
+                "context": "What is your main reason for seeking financial assistance for your business?",
+                "columns": ["What is your main reason for seeking financial assistance for your business?"]
+            },
+
+            # Planning responsibility
+            "financial_planning_responsible": {
+                "context": "Who handles the financial planning and cash flow tracking at your business?",
+                "columns": ["Who handles the financial planning and cash flow tracking at your business?"]
             }
         }
         
@@ -248,29 +264,29 @@ class VOCMapReduceProcessor:
         context = self.question_types[question_type]['context']
         prompt = f"""You are analyzing Voice of Customer (VOC) responses for the question: {context}
 
-            Please provide a detailed analysis of the following {len(responses)} responses with these components:
+        Please provide a detailed analysis of the following {len(responses)} responses with these components:
 
-            1. Key Themes & Patterns (40% of your response):
-            - Major recurring themes and patterns
-            - Subtopics within each theme
-            - How these themes interconnect
-            - Any contradictions or tensions between different viewpoints
+        1. Key Themes & Patterns (40% of your response):
+        - Major recurring themes and patterns
+        - Subtopics within each theme
+        - How these themes interconnect
+        - Any contradictions or tensions between different viewpoints
 
-            2. Statistical Breakdown (30% of your response):
-            - **Counts** of responses mentioning each key theme (e.g., "15 responses mentioned X").
-            - Breakdown of subthemes and their frequencies (e.g., "5 responses mentioned Y under theme X").
-            - Notable correlations between different themes
-            - Any unexpected patterns or outliers in the data
+        2. Statistical Breakdown (30% of your response):
+        - **Counts** of responses mentioning each key theme (e.g., "15 responses mentioned X").
+        - Breakdown of subthemes and their frequencies (e.g., "5 responses mentioned Y under theme X").
+        - Notable correlations between different themes
+        - Any unexpected patterns or outliers in the data
 
-            3. Notable Insights & Deep Dive (30% of your response):
-            - Most insightful or unique responses (quote specific examples)
-            - Unexpected or counterintuitive findings
-            - Specific success stories or challenges mentioned
-            - Business impact and implications
-            - Any gaps or unmet needs revealed in the responses
+        3. Notable Insights & Deep Dive (30% of your response):
+        - Most insightful or unique responses (quote specific examples)
+        - Unexpected or counterintuitive findings
+        - Specific success stories or challenges mentioned
+        - Business impact and implications
+        - Any gaps or unmet needs revealed in the responses
 
-            Responses to analyze:
-            """
+        Responses to analyze:
+        """
         # Enumerate gives us the index and the response in the responses list
         # We add the response text to the prompt
         for i, resp in enumerate(responses, 1):
@@ -293,61 +309,61 @@ class VOCMapReduceProcessor:
         # Meta-summary prompt template
         prompt = f"""You are creating a comprehensive meta-analysis of all Voice of Customer (VOC) responses for the question: **{context}**
 
-            Your task is to synthesize insights from {len(batch_summaries)} batch summaries into a cohesive, well-structured analysis. Your response should be tailored for business decision-makers, providing actionable insights and a clear understanding of the key challenges, patterns, and opportunities identified in the data. 
+        Your task is to synthesize insights from {len(batch_summaries)} batch summaries into a cohesive, well-structured analysis. Your response should be tailored for business decision-makers, providing actionable insights and a clear understanding of the key challenges, patterns, and opportunities identified in the data. 
 
-            Structure your response as follows:
+        Structure your response as follows:
 
-            ---
+        ---
 
-            ### 1. Executive Summary (10% of response):
-            - Provide a high-level overview of the most critical findings from the analysis.
-            - Highlight the most significant patterns and trends observed across all responses.
-            - Summarize the key takeaways for business decision-makers, emphasizing actionable insights.
+        ### 1. Executive Summary (10% of response):
+        - Provide a high-level overview of the most critical findings from the analysis.
+        - Highlight the most significant patterns and trends observed across all responses.
+        - Summarize the key takeaways for business decision-makers, emphasizing actionable insights.
 
-            ---
+        ---
 
-            ### 2. Major Themes & Patterns (30% of response):
-            - Identify and analyze the **recurring themes** across all batches. Group these themes into clear categories (e.g., revenue unpredictability, seasonality, expense management, funding gaps, external factors).
-            - Discuss how these themes **evolved or varied** across different batches. For example, are certain themes more prominent in specific industries or business types?
-            - Explore the **interconnections** between themes. For instance, how do revenue fluctuations impact expense management or funding needs?
-            - Highlight any **contradictions or nuances** in the responses. For example, why do some businesses report no challenges while others face significant cash flow issues?
+        ### 2. Major Themes & Patterns (30% of response):
+        - Identify and analyze the **recurring themes** across all batches. Group these themes into clear categories (e.g., revenue unpredictability, seasonality, expense management, funding gaps, external factors).
+        - Discuss how these themes **evolved or varied** across different batches. For example, are certain themes more prominent in specific industries or business types?
+        - Explore the **interconnections** between themes. For instance, how do revenue fluctuations impact expense management or funding needs?
+        - Highlight any **contradictions or nuances** in the responses. For example, why do some businesses report no challenges while others face significant cash flow issues?
 
-            ---
+        ---
 
-            ### 3. Comprehensive Statistical Analysis (25% of response):
-            - Aggregate **counts** of responses mentioning each key theme across all batches (e.g., "150 responses mentioned X out of 960 total responses").
-            - Calculate **weighted percentages** for key themes and subthemes based on the total number of responses (e.g., "15.6% of responses mentioned X").
-            - Analyze the **distribution of responses** across different categories (e.g., industries, business sizes, geographic regions).
-            - Identify **statistical trends and patterns**, such as correlations between themes (e.g., seasonality and inventory challenges). Please be specific with numbers and percentages.
-            - Discuss the **confidence levels** in the findings, including potential blind spots or limitations in the data.
+        ### 3. Comprehensive Statistical Analysis (25% of response):
+        - Aggregate **counts** of responses mentioning each key theme across all batches (e.g., "150 responses mentioned X out of 960 total responses").
+        - Calculate **weighted percentages** for key themes and subthemes based on the total number of responses (e.g., "15.6% of responses mentioned X").
+        - Analyze the **distribution of responses** across different categories (e.g., industries, business sizes, geographic regions).
+        - Identify **statistical trends and patterns**, such as correlations between themes (e.g., seasonality and inventory challenges). Please be specific with numbers and percentages.
+        - Discuss the **confidence levels** in the findings, including potential blind spots or limitations in the data.
 
-            ---
+        ---
 
-            ### 4. Deep Insights & Implications (25% of response):
-            - Share **compelling individual stories or examples** that illustrate key challenges or successes. Use direct quotes from the batch summaries where possible.
-            - Highlight **unexpected findings** and explain their significance. For example, were there any counterintuitive insights or unique challenges faced by specific groups (e.g., minority-owned businesses)?
-            - Discuss the **business implications** of the findings. What do these insights mean for decision-makers? Provide **actionable recommendations** to address the identified challenges.
-            - Identify **gaps and opportunities** revealed by the analysis. For example, are there unmet needs (e.g., better financial tools, access to funding) that businesses or policymakers could address?
+        ### 4. Deep Insights & Implications (25% of response):
+        - Share **compelling individual stories or examples** that illustrate key challenges or successes. Use direct quotes from the batch summaries where possible.
+        - Highlight **unexpected findings** and explain their significance. For example, were there any counterintuitive insights or unique challenges faced by specific groups (e.g., minority-owned businesses)?
+        - Discuss the **business implications** of the findings. What do these insights mean for decision-makers? Provide **actionable recommendations** to address the identified challenges.
+        - Identify **gaps and opportunities** revealed by the analysis. For example, are there unmet needs (e.g., better financial tools, access to funding) that businesses or policymakers could address?
 
-            ---
+        ---
 
-            ### 5. Areas for Further Investigation (10% of response):
-            - Pose **specific questions** raised by the analysis. For example, what additional data or research would help clarify contradictions or gaps in the findings?
-            - Identify **potential blind spots or limitations** in the current data. Are there underrepresented industries, business types, or regions that should be explored further?
-            - Suggest **follow-up research** or actions to address the identified gaps. For example, should future VOC surveys include more detailed questions about specific challenges (e.g., access to capital for minority-owned businesses)?
+        ### 5. Areas for Further Investigation (10% of response):
+        - Pose **specific questions** raised by the analysis. For example, what additional data or research would help clarify contradictions or gaps in the findings?
+        - Identify **potential blind spots or limitations** in the current data. Are there underrepresented industries, business types, or regions that should be explored further?
+        - Suggest **follow-up research** or actions to address the identified gaps. For example, should future VOC surveys include more detailed questions about specific challenges (e.g., access to capital for minority-owned businesses)?
 
-            ---
+        ---
 
-            ### Additional Guidelines:
-            - Use **clear, concise language** and avoid jargon. The analysis should be accessible to a non-technical audience.
-            - Support all major findings with **specific examples, statistics, and quotes** from the batch summaries.
-            - Prioritize **actionable insights** that can inform decision-making. For example, what strategies or tools could help businesses mitigate cash flow challenges?
-            - Ensure the analysis is **balanced**, highlighting both challenges and opportunities.
+        ### Additional Guidelines:
+        - Use **clear, concise language** and avoid jargon. The analysis should be accessible to a non-technical audience.
+        - Support all major findings with **specific examples, statistics, and quotes** from the batch summaries.
+        - Prioritize **actionable insights** that can inform decision-making. For example, what strategies or tools could help businesses mitigate cash flow challenges?
+        - Ensure the analysis is **balanced**, highlighting both challenges and opportunities.
 
-            ---
+        ---
 
-            ### Batch Summaries to Synthesize:
-            """
+        ### Batch Summaries to Synthesize:
+        """
         for i, summary in enumerate(batch_summaries, 1):
             prompt += f"\nBatch {i}:\n{summary}\n"       
 
@@ -506,26 +522,34 @@ class VOCMapReduceProcessor:
         self.store_summary(question_type, final_summary)
 
     def process_all_questions(self):
-        """Process all question types in the specified order."""
-        print(f"{Fore.GREEN}Processing question types in specified order{Style.RESET_ALL}")
-        
-        # Get available question types from the database
-        available_types = set(self.get_question_types())
-        
-        # Process questions in the defined order, if they exist in the database
-        for q_type in self.question_order:
-            if q_type in available_types:
-                self.process_question_type(q_type)
-            else:
-                print(f"{Fore.YELLOW}Question type {q_type} not found in database. Skipping.{Style.RESET_ALL}")
-        
-        # Process any remaining question types not in the ordered list
-        remaining_types = available_types - set(self.question_order)
-        if remaining_types:
-            print(f"\n{Fore.YELLOW}Processing remaining unordered question types:{Style.RESET_ALL}")
-            for q_type in remaining_types:
-                self.process_question_type(q_type)
+        """Process only those question types which do not yet have a meta‐summary."""
+        print(f"{Fore.GREEN}Determining which question types still need summaries{Style.RESET_ALL}")
 
+        # 1) Find all existing meta‐summaries
+        all_docs = self.collection.get()
+        existing_summaries = {
+            m["question_type"].rsplit("_summary", 1)[0]
+            for m in all_docs["metadatas"]
+            if m.get("question_type", "").endswith("_summary")
+        }
+
+        # 2) Compute defined vs available vs to_do
+        defined   = set(self.question_types.keys())
+        available = set(self.get_question_types())
+        to_do     = (defined & available) - existing_summaries
+
+        print(f"{Fore.BLUE}Already have summaries for: {sorted(existing_summaries)}{Style.RESET_ALL}")
+        print(f"{Fore.BLUE}Will generate summaries for: {sorted(to_do)}{Style.RESET_ALL}")
+
+        # 3) Process in your defined order, only missing ones
+        for q in self.question_order:
+            if q in to_do:
+                self.process_question_type(q)
+
+        # 4) Any leftovers not in the explicit order
+        leftovers = to_do - set(self.question_order)
+        for q in sorted(leftovers):
+            self.process_question_type(q)
 
     def cleanup_old_summaries(self):
         """
@@ -561,9 +585,6 @@ class VOCMapReduceProcessor:
         Input: None
         Output: None
         """
-        # Clean up old summaries first
-        self.cleanup_old_summaries()
-        
         while True:
             try:
                 print(f"\n{Fore.BLUE}Starting VOC Processing Job{Style.RESET_ALL}")
@@ -585,9 +606,10 @@ def main():
         print(f"\n{Fore.BLUE}Starting VOC Map-Reduce Processing Job{Style.RESET_ALL}\n")
         
         processor = VOCMapReduceProcessor(
-            persist_directory="/Users/sveerisetti/Desktop/VOC/chroma_database_update_2025_q1_update1",
+            persist_directory="/Users/sveerisetti/Desktop/Breva_VOC_Chat-main/chroma_database_update_2025_q2",
             batch_size=100,
-            anthropic_api_key="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"
+            # Anthropic Key
+            anthropic_api_key=""
         )
         
         processor.run_as_job()
