@@ -31,10 +31,17 @@ class ChromaToPineconeMigrator:
         pinecone_api_key: str,
         batch_size: int = 100,
         collection_name: str = "voc_responses",
-        index_name: str = "voc-index"
+        index_name: str = "voc-index-2025-q2"
     ):
         """
-        Initialize the migrator to transfer data from ChromaDB to Pinecone.
+        Purpose: Initialize the migrator with ChromaDB and Pinecone configurations.
+        Input: 
+            - chroma_persist_directory: Path to the ChromaDB persistence directory.
+            - pinecone_api_key: Pinecone API key for authentication.
+            - batch_size: Number of vectors to upload to Pinecone in each batch.
+            - collection_name: Name of the ChromaDB collection to migrate.
+            - index_name: Name of the Pinecone index to create or use.
+        Output: Initializes the migrator with connections to ChromaDB and Pinecone.
         """
         print(f"{Fore.GREEN}Initializing ChromaDB to Pinecone Migrator{Style.RESET_ALL}")
         
@@ -44,7 +51,7 @@ class ChromaToPineconeMigrator:
         self.batch_size = batch_size
         self.pinecone_api_key = pinecone_api_key
         
-        # Connect to ChromaDB
+        # Here we connect to ChromaDB using the provided directory and collection name.
         try:
             print(f"{Fore.YELLOW}Connecting to ChromaDB at {chroma_persist_directory}{Style.RESET_ALL}")
             self.chroma_client = chromadb.PersistentClient(path=chroma_persist_directory)
@@ -62,6 +69,7 @@ class ChromaToPineconeMigrator:
         # Initialize Pinecone with V2 API
         try:
             print(f"{Fore.YELLOW}Initializing Pinecone{Style.RESET_ALL}")
+            # Gather the Pinecone API key from the environment or provided argument
             self.pc = Pinecone(api_key=pinecone_api_key)
             print(f"{Fore.GREEN}Successfully initialized Pinecone{Style.RESET_ALL}")
         except Exception as e:
@@ -70,7 +78,9 @@ class ChromaToPineconeMigrator:
     
     def retrieve_chroma_data(self):
         """
-        Retrieve all data from ChromaDB collection.
+        Purpose: Retrieve all data from the specified ChromaDB collection.
+        Input: None
+        Output: Returns a dictionary containing IDs, embeddings, metadata, and documents.
         """
         try:
             print(f"{Fore.YELLOW}Retrieving data from ChromaDB collection '{self.collection_name}'...{Style.RESET_ALL}")
@@ -82,19 +92,19 @@ class ChromaToPineconeMigrator:
             end_time = time.time()
             print(f"{Fore.GREEN}Successfully retrieved {len(results.get('ids', []))} records from ChromaDB in {end_time - start_time:.2f} seconds{Style.RESET_ALL}")
             
-            # Debug: Check what's in the results
+            # Here is where we check the results
             print(f"\n{Fore.YELLOW}DEBUG: ChromaDB results structure{Style.RESET_ALL}")
             for key, value in results.items():
                 if isinstance(value, (list, np.ndarray)):
                     print(f"  {key}: {type(value)} with {len(value)} items")
                     if key == 'embeddings':
                         print(f"    First embedding shape: {value[0].shape if hasattr(value[0], 'shape') else len(value[0])}")
-                    elif value and key != 'embeddings':  # Don't print huge embedding arrays
+                    elif value and key != 'embeddings':  
                         print(f"    Sample: {value[0]}")
                 else:
                     print(f"  {key}: {type(value)}")
             
-            # Properly check if embeddings exist using numpy check
+            #Using numpy to ensure embeddings are in the correct format
             if 'embeddings' not in results or (isinstance(results['embeddings'], np.ndarray) and results['embeddings'].size == 0):
                 print(f"{Fore.RED}WARNING: No embeddings found in the data.{Style.RESET_ALL}")
                 return None
@@ -106,12 +116,16 @@ class ChromaToPineconeMigrator:
     
     def create_pinecone_index(self, dimension: int):
         """
-        Create a new Pinecone index if it doesn't exist.
+        Purpose: Create a Pinecone index with the specified dimension.
+        Input:
+            - dimension: The dimensionality of the vectors to be stored in the index.
+        Output: Creates a Pinecone index if it does not already exist.
         """
         try:
-            # Check if index exists
+            # Check if the database exists
             existing_indexes = [index.name for index in self.pc.list_indexes()]
             
+            # If there is an existing index with the same name, we will use it
             if self.index_name in existing_indexes:
                 print(f"{Fore.YELLOW}Pinecone index '{self.index_name}' already exists{Style.RESET_ALL}")
                 index = self.pc.Index(self.index_name)
@@ -120,7 +134,7 @@ class ChromaToPineconeMigrator:
             else:
                 print(f"{Fore.YELLOW}Creating new Pinecone index '{self.index_name}' with dimension {dimension}{Style.RESET_ALL}")
                 
-                # Use gcp-starter region which is available for free tier
+                # Pinecone requires a dimension for the index
                 self.pc.create_index(
                     name=self.index_name,
                     dimension=dimension,
@@ -128,18 +142,18 @@ class ChromaToPineconeMigrator:
                     spec={
                         "serverless": {
                             "cloud": "aws",
-                            "region": "us-east-1"  # Use GCP free tier region
+                            "region": "us-east-1"  
                         }
                     }
                 )
                 print(f"{Fore.GREEN}Successfully created Pinecone index{Style.RESET_ALL}")
         except Exception as e:
             print(f"{Fore.RED}Error with Pinecone index: {e}{Style.RESET_ALL}")
-            # If it fails again, try to give helpful information about available regions
+            
+            # If the region for some reason is not available, we can try to provide guidance
             if "region" in str(e).lower():
                 try:
                     print(f"{Fore.YELLOW}Attempting to retrieve available regions...{Style.RESET_ALL}")
-                    # Try to list available regions if possible
                     print(f"{Fore.YELLOW}Please check the Pinecone console for available regions for your account.{Style.RESET_ALL}")
                     print(f"{Fore.YELLOW}Free tier typically uses 'gcp-starter' with region 'us-central1'.{Style.RESET_ALL}")
                 except Exception:
@@ -148,11 +162,15 @@ class ChromaToPineconeMigrator:
     
     def format_for_pinecone(self, chroma_data: Dict[str, Any]):
         """
-        Format ChromaDB data for Pinecone.
+        Purpose: Format data retrieved from ChromaDB to the structure required by Pinecone.
+        Input:
+            - chroma_data: Dictionary containing IDs, embeddings, metadata, and documents from ChromaDB.
+        Output: Returns a list of vectors formatted for Pinecone.
         """
         try:
             print(f"{Fore.YELLOW}Formatting ChromaDB data for Pinecone...{Style.RESET_ALL}")
             
+            # Get the necessary fields from the ChromaDB data
             ids = chroma_data.get('ids', [])
             embeddings = chroma_data.get('embeddings', [])
             metadatas = chroma_data.get('metadatas', [])
@@ -180,7 +198,7 @@ class ChromaToPineconeMigrator:
             
             print(f"{Fore.GREEN}Successfully formatted {len(vectors)} vectors for Pinecone{Style.RESET_ALL}")
             
-            # Debug: Print a sample vector
+            # Debugging to check the structure of the first vector
             if vectors:
                 print(f"\n{Fore.YELLOW}DEBUG: Sample vector structure{Style.RESET_ALL}")
                 sample = vectors[0].copy()
@@ -194,18 +212,24 @@ class ChromaToPineconeMigrator:
     
     def upload_to_pinecone(self, vectors: List[Dict], batch_size: int = None):
         """
-        Upload vectors to Pinecone in batches.
+        Purpose: Upload formatted vectors to the Pinecone index in batches. 
+        Input:
+            - vectors: List of vectors formatted for Pinecone.
+            - batch_size: Number of vectors to upload in each batch (default is self.batch_size).
+        Output: Uploads vectors to the Pinecone index.
         """
+
+        # If the batch_size is not provided, use the instance's batch_size
         if batch_size is None:
             batch_size = self.batch_size
             
         try:
             print(f"{Fore.YELLOW}Uploading {len(vectors)} vectors to Pinecone index '{self.index_name}' in batches of {batch_size}{Style.RESET_ALL}")
             
-            # Connect to the index with V2 API
+            # Connect to pinecone
             index = self.pc.Index(self.index_name)
             
-            # Upload in batches
+            # Upload the chroma db vectors as batches
             total_batches = (len(vectors) + batch_size - 1) // batch_size
             for i in tqdm(range(0, len(vectors), batch_size), desc="Uploading batches", total=total_batches):
                 batch = vectors[i:i+batch_size]
@@ -219,16 +243,19 @@ class ChromaToPineconeMigrator:
     
     def migrate(self):
         """
-        Main migration function that orchestrates the entire process.
+        Purpose: Main method to perform the migration from ChromaDB to Pinecone.
+        Input: None
+        Output: Migrates data from ChromaDB to Pinecone, creating the index and uploading vectors.
         """
         try:
             print(f"\n{Fore.BLUE}{'=' * 80}{Style.RESET_ALL}")
             print(f"{Fore.BLUE}Starting migration from ChromaDB to Pinecone{Style.RESET_ALL}")
             print(f"{Fore.BLUE}{'=' * 80}{Style.RESET_ALL}")
             
-            # Step 1: Retrieve data from ChromaDB
+            # Get data from ChromaDB
             chroma_data = self.retrieve_chroma_data()
             
+            # If not, data is found, exit early
             if not chroma_data or not chroma_data.get('ids'):
                 print(f"{Fore.RED}No data found in ChromaDB collection '{self.collection_name}'{Style.RESET_ALL}")
                 return
@@ -247,13 +274,13 @@ class ChromaToPineconeMigrator:
                 
             print(f"{Fore.BLUE}Vector dimension: {dimension}{Style.RESET_ALL}")
             
-            # Step 2: Create Pinecone index
+            # Create Pinecone index
             self.create_pinecone_index(dimension)
             
-            # Step 3: Format data for Pinecone
+            # Format data for Pinecone
             vectors = self.format_for_pinecone(chroma_data)
             
-            # Step 4: Upload to Pinecone
+            # Upload vectors to Pinecone
             self.upload_to_pinecone(vectors)
             
             print(f"\n{Fore.GREEN}{'=' * 80}{Style.RESET_ALL}")
@@ -269,15 +296,19 @@ class ChromaToPineconeMigrator:
 
 
 def main():
-    """Main function to run the migration."""
+    """
+    Purpose: Main function to parse command line arguments and initiate the migration process.
+    Input: None
+    Output: Parses command line arguments and starts the migration process.
+    """
     parser = argparse.ArgumentParser(description='Migrate data from ChromaDB to Pinecone')
-    parser.add_argument('--chroma-dir', type=str, default="/Users/sveerisetti/Desktop/VOC/chroma_database_update_2025_q1_update1",
+    parser.add_argument('--chroma-dir', type=str, default="/Users/sveerisetti/Desktop/Breva_VOC_Chat-main/chroma_database_update_2025_q2",
                         help='Path to ChromaDB persistence directory')
     parser.add_argument('--pinecone-api-key', type=str, default="pcsk_5vnC9g_A8MYTbGufDu68CXWkiUCqPQY3bSLRULeJvSJEhxVNU8GHHfdMaYSjSAEKFETDAt",
                         help='Pinecone API key')
     parser.add_argument('--collection-name', type=str, default="voc_responses",
                         help='ChromaDB collection name')
-    parser.add_argument('--index-name', type=str, default="voc-index",
+    parser.add_argument('--index-name', type=str, default="voc-index-2025-q2",
                         help='Pinecone index name')
     parser.add_argument('--batch-size', type=int, default=100,
                         help='Batch size for Pinecone uploads')
@@ -285,6 +316,7 @@ def main():
     args = parser.parse_args()
     
     try:
+        # Use ChromaToPineconeMigrator to perform the migration
         migrator = ChromaToPineconeMigrator(
             chroma_persist_directory=args.chroma_dir,
             pinecone_api_key=args.pinecone_api_key,
