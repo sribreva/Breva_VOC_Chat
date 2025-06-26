@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 class VOCDatabaseCreator:
     def __init__(
         self,
-        persist_directory="/Users/sveerisetti/Desktop/VOC/chroma_database_update_2025_q1_update1",
+        persist_directory="/Users/sveerisetti/Desktop/Breva_VOC_Chat-main/chroma_database_update_2025_q2",
         do_clustering: bool = False,
         chunk_tokens: int = 0
     ):
@@ -146,6 +146,16 @@ class VOCDatabaseCreator:
             "financial_advisor_questions": {
                 "context": "Questions for financial advisor",
                 "columns": ["Please provide your top three (3) questions you would ask a financial advisor or business coach, about your business?"]
+            }, 
+            # Financial assistance rationale
+            "reason_financial_assistance": {
+                "context": "What is your main reason for seeking financial assistance for your business?",
+                "columns": ["What is your main reason for seeking financial assistance for your business?"]
+            },
+            # Planning responsibility
+            "financial_planning_responsible": {
+                "context": "Who handles the financial planning and \ncash flow tracking at your business?",
+                "columns": ["Who handles the financial planning and \ncash flow tracking at your business?"]
             }
         }
         
@@ -433,11 +443,11 @@ def main():
         
         # Example: clustering disabled, no chunking
         creator = VOCDatabaseCreator(
-            persist_directory="/Users/sveerisetti/Desktop/VOC/chroma_database_update_2025_q1_update1",
+            persist_directory="/Users/sveerisetti/Desktop/Breva_VOC_Chat-main/chroma_database_update_2025_q2",
             do_clustering=False,
             chunk_tokens=0
         )
-        creator.create_database('/Users/sveerisetti/Desktop/VOC/merged_grant_applications.csv')
+        creator.create_database('/Users/sveerisetti/Desktop/Breva_VOC_Chat-main/merged_grant_applications_q2_2025.csv')
     except Exception as e:
         print(f"{Fore.RED}Error in main: {e}{Style.RESET_ALL}")
         raise
